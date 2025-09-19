@@ -1,28 +1,7 @@
-# MarketWatcher - Backend (main.py)
-# ---------------------------------
-# Basit MVP backend. Özeti:
-# - FastAPI ile REST API
-# - SQLite (SQLModel) ile Alert tablosu
-# - Binance + Yahoo fallback ile fiyat çekme
-# - Arka planda çalışan döngü ile aktif alarm kontrolleri (console'a bildirim basılıyor)
-#
-# Gereksinimler:
-# pip install fastapi uvicorn sqlmodel httpx
-#
-# Çalıştırma:
-# export CHECK_INTERVAL=30      # (opsiyonel) kontrol aralığı saniye
-# export NOTIFY_COOLDOWN=3600   # (opsiyonel) aynı alarm için cooldown saniye
-# uvicorn main:app --reload
-#
-# Test örnekleri:
-# GET price:   curl http://127.0.0.1:8000/price/BTCUSDT
-# POST alert:  curl -X POST "http://127.0.0.1:8000/alerts" -H "Content-Type: application/json" -d '{"symbol":"BTCUSDT","threshold":70000,"direction":"above"}'
-# GET alerts:  curl http://127.0.0.1:8000/alerts
-
 import asyncio
 import os
-from datetime import datetime
-from typing import Optional, List
+from datetime import datetime, timedelta
+from typing import Optional, List, Dict
 
 from fastapi import FastAPI, HTTPException
 import httpx
@@ -30,8 +9,10 @@ from sqlmodel import SQLModel, Field, create_engine, Session, select
 
 import firebase_admin
 from firebase_admin import credentials, messaging
+from bs4 import BeautifulSoup
+import requests
 
-# Firebase initialization
+# Firebase
 cred = credentials.Certificate("market-watcher-14891-firebase-adminsdk-fbsvc-66f5a6893b.json")
 firebase_admin.initialize_app(cred)
 
@@ -39,28 +20,30 @@ firebase_admin.initialize_app(cred)
 DB_URL = os.getenv("DATABASE_URL", "sqlite:///./alerts.db")
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "30"))        # saniye
 NOTIFY_COOLDOWN = int(os.getenv("NOTIFY_COOLDOWN", "3600"))    # saniye
+CACHE_TTL = int(os.getenv("CACHE_TTL", "3600"))                # saniye
 
-# DB setup
 engine = create_engine(DB_URL, echo=False)
+app = FastAPI(title="MarketWatcher Backend")
+
+# Cache
+cache: Dict[str, dict] = {}
 
 class Alert(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    symbol: str = "CUSTOM"  # Opsiyonel sembol, Flutter verisi için CUSTOM
-    threshold: float = 0     # Opsiyonel, fiyat alarmı için kullanılabilir
+    symbol: str = "CUSTOM"
+    threshold: float = 0
     direction: str = "above"
-    message: Optional[str] = None  # Flutter’dan gelen özgün veri
+    message: Optional[str] = None
     active: bool = True
     last_notified_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    user_token: Optional[str] = None # FCM token
+    user_token: Optional[str] = None
 
 class AlertCreate(SQLModel):
     symbol: str
     threshold: float
     direction: Optional[str] = "above"
-    user_token: Optional[str] = None  # FCM token
-
-app = FastAPI(title="MarketWatcher Backend")
+    user_token: Optional[str] = None
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
@@ -80,20 +63,21 @@ async def on_shutdown():
         except asyncio.CancelledError:
             pass
 
+# ----------------------------
+# Alerts
+# ----------------------------
 @app.post("/alerts", response_model=Alert)
 def create_alert(alert_in: AlertCreate):
     direction = alert_in.direction.lower() if alert_in.direction else "above"
     if direction not in ["above", "below"]:
         raise HTTPException(status_code=400, detail="Direction must be 'above' or 'below'")
-    
     alert = Alert(
         symbol=alert_in.symbol.upper() if alert_in.symbol else "CUSTOM",
-        threshold=alert_in.threshold if alert_in.threshold else 0,
+        threshold=alert_in.threshold,
         direction=direction,
         message=getattr(alert_in, "message", None),
         user_token=alert_in.user_token
     )
-    
     with Session(engine) as session:
         session.add(alert)
         session.commit()
@@ -116,28 +100,12 @@ def delete_alert(alert_id: int):
         session.commit()
     return {"ok": True}
 
-def send_push_notification(token: str, title: str, body: str):
-    try:
-        message = messaging.Message(
-            notification=messaging.Notification(title=title, body=body),
-            token=token
-        )
-        response = messaging.send(message)
-        print(f"Push sent: {response}")
-    except Exception as e:
-        print("FCM send error:", e)
-
-@app.get("/price/{symbol}")
-async def get_price_endpoint(symbol: str):
-    price = await fetch_price(symbol.upper())
-    if price is None:
-        raise HTTPException(status_code=404, detail="Price not found")
-    return {"symbol": symbol.upper(), "price": price}
-
+# ----------------------------
+# Price Fetching
+# ----------------------------
 async def fetch_price(symbol: str) -> Optional[float]:
-    """First Binance (crypto pairs), if not Yahoo Finance fallback"""
     async with httpx.AsyncClient(timeout=10) as client:
-        # Binance
+        # Binance (crypto)
         try:
             r = await client.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": symbol})
             if r.status_code == 200:
@@ -158,6 +126,94 @@ async def fetch_price(symbol: str) -> Optional[float]:
             pass
     return None
 
+@app.get("/price/{symbol}")
+async def get_price_endpoint(symbol: str):
+    price = await fetch_price(symbol.upper())
+    if price is None:
+        raise HTTPException(status_code=404, detail="Price not found")
+    return {"symbol": symbol.upper(), "price": price}
+
+# ----------------------------
+# BIST Companies (Investing.com)
+# ----------------------------
+@app.get("/bist_companies")
+def get_bist_companies():
+    now = datetime.utcnow()
+    if "bist" in cache and (now - cache["bist"]["time"]).total_seconds() < CACHE_TTL:
+        return cache["bist"]["data"]
+
+    url = "https://www.investing.com/indices/ise-100-components"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    r = requests.get(url, headers=headers)
+    companies = []
+
+    if r.status_code == 200:
+        soup = BeautifulSoup(r.text, "html.parser")
+        table = soup.find("table", {"id": "constituents"})
+        if table:
+            for row in table.find_all("tr")[1:]:
+                cols = row.find_all("td")
+                if len(cols) > 1:
+                    symbol = cols[0].text.strip() + ".IS"
+                    name = cols[1].text.strip()
+                    companies.append({"symbol": symbol, "name": name})
+
+    cache["bist"] = {"data": companies, "time": now}
+    return companies
+
+# ----------------------------
+# NASDAQ Companies (Yahoo)
+# ----------------------------
+@app.get("/nasdaq_companies")
+def get_nasdaq_companies():
+    now = datetime.utcnow()
+    if "nasdaq" in cache and (now - cache["nasdaq"]["time"]).total_seconds() < CACHE_TTL:
+        return cache["nasdaq"]["data"]
+
+    # Örnek: statik NASDAQ listesi, dilersen Yahoo API ile otomatik çekilebilir
+    companies = [
+        {"symbol": "AAPL", "name": "Apple Inc."},
+        {"symbol": "TSLA", "name": "Tesla Inc."},
+        {"symbol": "NVDA", "name": "NVIDIA Corp."}
+    ]
+    cache["nasdaq"] = {"data": companies, "time": now}
+    return companies
+
+# ----------------------------
+# Crypto list (Binance)
+# ----------------------------
+@app.get("/crypto_list")
+async def get_crypto_list():
+    now = datetime.utcnow()
+    if "crypto" in cache and (now - cache["crypto"]["time"]).total_seconds() < CACHE_TTL:
+        return cache["crypto"]["data"]
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get("https://api.binance.com/api/v3/ticker/price")
+        crypto_list = []
+        if r.status_code == 200:
+            data = r.json()
+            for item in data:
+                symbol = item.get("symbol", "")
+                if symbol.endswith("USDT"):
+                    crypto_list.append({"symbol": symbol})
+    cache["crypto"] = {"data": crypto_list, "time": now}
+    return crypto_list
+
+# ----------------------------
+# Price Check Loop (Push Notification)
+# ----------------------------
+def send_push_notification(token: str, title: str, body: str):
+    try:
+        message = messaging.Message(
+            notification=messaging.Notification(title=title, body=body),
+            token=token
+        )
+        response = messaging.send(message)
+        print(f"Push sent: {response}")
+    except Exception as e:
+        print("FCM send error:", e)
+
 async def price_check_loop():
     while True:
         try:
@@ -177,7 +233,22 @@ async def price_check_loop():
                         with Session(engine) as session:
                             session.add(alert)
                             session.commit()
-                # Fiyat alarmı varsa mevcut logic çalışır (symbol/threshold)
+                # Fiyat alarmı
+                else:
+                    price = await fetch_price(alert.symbol)
+                    if price is not None:
+                        trigger = (alert.direction=="above" and price>=alert.threshold) or \
+                                  (alert.direction=="below" and price<=alert.threshold)
+                        if trigger and alert.user_token:
+                            send_push_notification(
+                                token=alert.user_token,
+                                title=f"{alert.symbol} Alarm",
+                                body=f"Fiyat {price} {alert.direction} {alert.threshold}"
+                            )
+                            alert.last_notified_at = datetime.utcnow()
+                            with Session(engine) as session:
+                                session.add(alert)
+                                session.commit()
         except Exception as e:
             print("Error in price_check_loop:", e)
         await asyncio.sleep(CHECK_INTERVAL)
