@@ -45,13 +45,14 @@ engine = create_engine(DB_URL, echo=False)
 
 class Alert(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    symbol: str
-    threshold: float
-    direction: str = "above"   # "above" veya "below"
+    symbol: str = "CUSTOM"  # Opsiyonel sembol, Flutter verisi için CUSTOM
+    threshold: float = 0     # Opsiyonel, fiyat alarmı için kullanılabilir
+    direction: str = "above"
+    message: Optional[str] = None  # Flutter’dan gelen özgün veri
     active: bool = True
     last_notified_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    user_token: Optional[str] = None  # FCM token
+    user_token: Optional[str] = None # FCM token
 
 class AlertCreate(SQLModel):
     symbol: str
@@ -84,12 +85,15 @@ def create_alert(alert_in: AlertCreate):
     direction = alert_in.direction.lower() if alert_in.direction else "above"
     if direction not in ["above", "below"]:
         raise HTTPException(status_code=400, detail="Direction must be 'above' or 'below'")
+    
     alert = Alert(
-        symbol=alert_in.symbol.upper(),
-        threshold=alert_in.threshold,
+        symbol=alert_in.symbol.upper() if alert_in.symbol else "CUSTOM",
+        threshold=alert_in.threshold if alert_in.threshold else 0,
         direction=direction,
+        message=getattr(alert_in, "message", None),
         user_token=alert_in.user_token
     )
+    
     with Session(engine) as session:
         session.add(alert)
         session.commit()
@@ -113,7 +117,6 @@ def delete_alert(alert_id: int):
     return {"ok": True}
 
 def send_push_notification(token: str, title: str, body: str):
-    """Kullanıcıya FCM push gönderir"""
     try:
         message = messaging.Message(
             notification=messaging.Notification(title=title, body=body),
@@ -156,44 +159,25 @@ async def fetch_price(symbol: str) -> Optional[float]:
     return None
 
 async def price_check_loop():
-    print(f"[startup] Price checker started (interval={CHECK_INTERVAL}s)")
     while True:
         try:
             with Session(engine) as session:
                 alerts = session.exec(select(Alert).where(Alert.active == True)).all()
-                symbols = sorted({a.symbol for a in alerts})
-            if symbols:
-                prices = {}
-                for sym in symbols:
-                    p = await fetch_price(sym)
-                    prices[sym] = p
-                now = datetime.utcnow()
-                with Session(engine) as session:
-                    for alert in session.exec(select(Alert).where(Alert.active == True)).all():
-                        price = prices.get(alert.symbol)
-                        if price is None:
-                            continue
-                        notify = False
-                        if alert.direction == "above" and price > alert.threshold:
-                            notify = True
-                        if alert.direction == "below" and price < alert.threshold:
-                            notify = True
-                        if notify:
-                            last = alert.last_notified_at
-                            if last and (now - last).total_seconds() < NOTIFY_COOLDOWN:
-                                notify = False
-                        if notify:
-                            if alert.user_token:
-                                send_push_notification(
-                                    token=alert.user_token,
-                                    title=f"{alert.symbol} fiyat alarmı!",
-                                    body=f"Fiyat {alert.direction} {alert.threshold}$ seviyesini geçti. Güncel: {price}$"
-                                )
-                            else:
-                                print(f"[WARN] Alert {alert.id} has no FCM token. Push cannot be sent.")
-                            alert.last_notified_at = now
+            for alert in alerts:
+                # Flutter'dan gelen mesaj varsa push anında
+                if alert.message and alert.user_token:
+                    now = datetime.utcnow()
+                    if not alert.last_notified_at or (now - alert.last_notified_at).total_seconds() > NOTIFY_COOLDOWN:
+                        send_push_notification(
+                            token=alert.user_token,
+                            title="Yeni veri eklendi!",
+                            body=alert.message
+                        )
+                        alert.last_notified_at = now
+                        with Session(engine) as session:
                             session.add(alert)
-                    session.commit()
+                            session.commit()
+                # Fiyat alarmı varsa mevcut logic çalışır (symbol/threshold)
         except Exception as e:
             print("Error in price_check_loop:", e)
         await asyncio.sleep(CHECK_INTERVAL)

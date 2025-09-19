@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'market-watcher-14891.firebasestorage.app',
     measurementId: 'G-8LJLLMTY91',
   );
+
 }

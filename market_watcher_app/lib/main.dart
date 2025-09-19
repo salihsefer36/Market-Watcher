@@ -2,13 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'firebase_options.dart';
+import 'package:flutter/foundation.dart'; 
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print('Background message received: ${message.messageId}');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const MyApp());
 }
 
@@ -19,15 +31,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Market Watcher',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: const AuthGate(),
     );
   }
 }
 
-/// AuthGate: Kullanıcı giriş yapmışsa HomePage, değilse LoginPage
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -37,9 +46,7 @@ class AuthGate extends StatelessWidget {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         if (snapshot.hasData) {
           return const HomePage();
@@ -51,73 +58,63 @@ class AuthGate extends StatelessWidget {
   }
 }
 
-/// LoginPage: Giriş / Kayıt işlemleri
-class LoginPage extends StatefulWidget {
+class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
-  @override
-  State<LoginPage> createState() => _LoginPageState();
-}
-
-class _LoginPageState extends State<LoginPage> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
-  Future<void> signIn() async {
+  Future<UserCredential?> signInWithGoogle() async {
     try {
-      await _auth.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-    } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Giriş sırasında hata oluştu')),
-      );
-    }
-  }
-
-  Future<void> register() async {
-    try {
-      await _auth.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-    } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Kayıt sırasında hata oluştu')),
-      );
+      if (kIsWeb) {
+        GoogleAuthProvider authProvider = GoogleAuthProvider();
+        return await FirebaseAuth.instance.signInWithPopup(authProvider);
+      } else {
+        final googleUser = await GoogleSignIn().signIn();
+        if (googleUser == null) return null;
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        return await FirebaseAuth.instance.signInWithCredential(credential);
+      }
+    } catch (e) {
+      print('Google Sign-In hatası: $e');
+      return null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Giriş / Kayıt')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: 'Email'),
-            ),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: 'Şifre'),
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(onPressed: signIn, child: const Text('Giriş Yap')),
-            ElevatedButton(onPressed: register, child: const Text('Kayıt Ol')),
-          ],
+      appBar: AppBar(title: const Text('Google ile Giriş')),
+      body: Center(
+        child: ElevatedButton.icon(
+          icon: Image.asset(
+         'assets/images/google_logo.png',
+          height: 24,    
+          width: 24,
+        ),
+          label: const Text('Google ile Giriş Yap'),
+          style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white, // Beyaz arka plan Google butonu için
+          foregroundColor: Colors.black,  // Yazı rengi siyah
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        ),
+        onPressed: () async {
+          final userCredential = await signInWithGoogle();
+            if (userCredential != null) {
+              Navigator.pushReplacement(
+                context, MaterialPageRoute(builder: (_) => const HomePage()));
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Giriş başarısız')));
+            }
+          },
         ),
       ),
     );
   }
 }
 
-/// HomePage: Firestore veri ekleme ve listeleme
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -128,30 +125,98 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final TextEditingController _dataController = TextEditingController();
 
+  // Emulator için localhost: 10.0.2.2
+  static const String backendUrl = "http://10.0.2.2:8000/alerts";
+
+  @override
+  void initState() {
+    super.initState();
+    _requestPermission();
+    _saveDeviceToken();
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (message.notification != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(message.notification!.title ?? 'Bildirim geldi!')));
+      }
+    });
+  }
+
+  Future<void> _requestPermission() async {
+    await _messaging.requestPermission();
+  }
+
+  Future<void> _saveDeviceToken() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    String? token = await _messaging.getToken();
+    if (token != null) {
+      await _firestore.collection('user_tokens').doc(user.uid).set({
+        'token': token,
+        'email': user.email,
+      });
+    }
+  }
+
   Future<void> addData() async {
-    if (_dataController.text.isEmpty) return;
+    final user = _auth.currentUser;
+    if (user == null || _dataController.text.isEmpty) return;
+
+    final message = _dataController.text;
+
+    // Firestore'a kaydet
     await _firestore.collection('market_data').add({
-      'user': _auth.currentUser?.email,
-      'data': _dataController.text,
+      'user': user.email,
+      'data': message,
       'timestamp': FieldValue.serverTimestamp(),
     });
+
     _dataController.clear();
+
+    // Backend'e POST et
+    try {
+      final tokenDoc = await _firestore.collection('user_tokens').doc(user.uid).get();
+      final token = tokenDoc.data()?['token'];
+
+      if (token == null) return;
+
+      final body = json.encode({
+        'symbol': 'CUSTOM',
+        'threshold': 0,
+        'direction': 'above',
+        'message': message,
+        'user_token': token,
+      });
+
+      final res = await http.post(Uri.parse(backendUrl),
+          headers: {'Content-Type': 'application/json'}, body: body);
+
+      if (res.statusCode == 200) {
+        print("Backend alert kaydedildi");
+      } else {
+        print("Backend alert hatası: ${res.body}");
+      }
+    } catch (e) {
+      print("Backend request hatası: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = _auth.currentUser;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Market Watcher Home'),
+        title: Text('Market Watcher - ${user?.displayName ?? user?.email ?? ''}'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await _auth.signOut();
-            },
-          )
+              icon: const Icon(Icons.logout),
+              onPressed: () async {
+                await _auth.signOut();
+                await GoogleSignIn().signOut();
+              }),
         ],
       ),
       body: Column(
@@ -177,9 +242,7 @@ class _HomePageState extends State<HomePage> {
                   .orderBy('timestamp', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                 final docs = snapshot.data!.docs;
                 return ListView.builder(
                   itemCount: docs.length,
