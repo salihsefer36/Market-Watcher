@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "215054783977",
+    "project_id": "market-watcher-14891",
+    "storage_bucket": "market-watcher-14891.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:215054783977:android:312fb280a1692feb4b2778",
+        "android_client_info": {
+          "package_name": "com.example.market_watcher_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLw2X5KRarlpQHVdl5D-Tmryyl4DgU1Fg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
