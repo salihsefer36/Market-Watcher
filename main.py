@@ -21,17 +21,24 @@
 
 import asyncio
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional, List
 
 from fastapi import FastAPI, HTTPException
 import httpx
 from sqlmodel import SQLModel, Field, create_engine, Session, select
 
+import firebase_admin
+from firebase_admin import credentials, messaging
+
+# Firebase initialization
+cred = credentials.Certificate("market-watcher-14891-firebase-adminsdk-fbsvc-66f5a6893b.json")
+firebase_admin.initialize_app(cred)
+
 # Config
 DB_URL = os.getenv("DATABASE_URL", "sqlite:///./alerts.db")
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "30"))        # saniye
-NOTIFY_COOLDOWN = int(os.getenv("NOTIFY_COOLDOWN", "3600"))  # saniye
+NOTIFY_COOLDOWN = int(os.getenv("NOTIFY_COOLDOWN", "3600"))    # saniye
 
 # DB setup
 engine = create_engine(DB_URL, echo=False)
@@ -44,25 +51,23 @@ class Alert(SQLModel, table=True):
     active: bool = True
     last_notified_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    user_token: Optional[str] = None  # FCM token
 
 class AlertCreate(SQLModel):
     symbol: str
     threshold: float
     direction: Optional[str] = "above"
+    user_token: Optional[str] = None  # FCM token
 
 app = FastAPI(title="MarketWatcher Backend")
-
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
-
 @app.on_event("startup")
 async def on_startup():
     create_db_and_tables()
-    # arka plan task'ı başlat
     app.state._task = asyncio.create_task(price_check_loop())
-
 
 @app.on_event("shutdown")
 async def on_shutdown():
@@ -74,23 +79,28 @@ async def on_shutdown():
         except asyncio.CancelledError:
             pass
 
-
 @app.post("/alerts", response_model=Alert)
 def create_alert(alert_in: AlertCreate):
-    alert = Alert(symbol=alert_in.symbol.upper(), threshold=alert_in.threshold, direction=alert_in.direction)
+    direction = alert_in.direction.lower() if alert_in.direction else "above"
+    if direction not in ["above", "below"]:
+        raise HTTPException(status_code=400, detail="Direction must be 'above' or 'below'")
+    alert = Alert(
+        symbol=alert_in.symbol.upper(),
+        threshold=alert_in.threshold,
+        direction=direction,
+        user_token=alert_in.user_token
+    )
     with Session(engine) as session:
         session.add(alert)
         session.commit()
         session.refresh(alert)
     return alert
 
-
 @app.get("/alerts", response_model=List[Alert])
 def list_alerts():
     with Session(engine) as session:
         alerts = session.exec(select(Alert)).all()
     return alerts
-
 
 @app.delete("/alerts/{alert_id}")
 def delete_alert(alert_id: int):
@@ -102,6 +112,17 @@ def delete_alert(alert_id: int):
         session.commit()
     return {"ok": True}
 
+def send_push_notification(token: str, title: str, body: str):
+    """Kullanıcıya FCM push gönderir"""
+    try:
+        message = messaging.Message(
+            notification=messaging.Notification(title=title, body=body),
+            token=token
+        )
+        response = messaging.send(message)
+        print(f"Push sent: {response}")
+    except Exception as e:
+        print("FCM send error:", e)
 
 @app.get("/price/{symbol}")
 async def get_price_endpoint(symbol: str):
@@ -110,11 +131,10 @@ async def get_price_endpoint(symbol: str):
         raise HTTPException(status_code=404, detail="Price not found")
     return {"symbol": symbol.upper(), "price": price}
 
-
 async def fetch_price(symbol: str) -> Optional[float]:
     """First Binance (crypto pairs), if not Yahoo Finance fallback"""
     async with httpx.AsyncClient(timeout=10) as client:
-        # Try Binance
+        # Binance
         try:
             r = await client.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": symbol})
             if r.status_code == 200:
@@ -134,7 +154,6 @@ async def fetch_price(symbol: str) -> Optional[float]:
         except Exception:
             pass
     return None
-
 
 async def price_check_loop():
     print(f"[startup] Price checker started (interval={CHECK_INTERVAL}s)")
@@ -164,8 +183,14 @@ async def price_check_loop():
                             if last and (now - last).total_seconds() < NOTIFY_COOLDOWN:
                                 notify = False
                         if notify:
-                            # geçici: gerçek push yerine konsola yazdırıyoruz
-                            print(f"[{now.isoformat()}] ALERT: {alert.symbol} price {price} triggered threshold {alert.direction} {alert.threshold}")
+                            if alert.user_token:
+                                send_push_notification(
+                                    token=alert.user_token,
+                                    title=f"{alert.symbol} fiyat alarmı!",
+                                    body=f"Fiyat {alert.direction} {alert.threshold}$ seviyesini geçti. Güncel: {price}$"
+                                )
+                            else:
+                                print(f"[WARN] Alert {alert.id} has no FCM token. Push cannot be sent.")
                             alert.last_notified_at = now
                             session.add(alert)
                     session.commit()
