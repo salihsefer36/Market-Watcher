@@ -7,7 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'firebase_options.dart';
-import 'package:flutter/foundation.dart'; 
+import 'package:flutter/foundation.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -16,9 +16,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const MyApp());
@@ -48,11 +46,7 @@ class AuthGate extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-        if (snapshot.hasData) {
-          return const HomePage();
-        } else {
-          return const LoginPage();
-        }
+         return const HomePage();
       },
     );
   }
@@ -103,7 +97,7 @@ class LoginPage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFFFD700), // Altın sarısı
+                      color: Color(0xFFFFD700),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -116,7 +110,7 @@ class LoginPage extends StatelessWidget {
                     label: const Text('Google ile Giriş Yap'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
-                      foregroundColor: Color(0xFFFFD700), // Altın yazı
+                      foregroundColor: Color(0xFFFFD700),
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -125,10 +119,13 @@ class LoginPage extends StatelessWidget {
                       final userCredential = await signInWithGoogle();
                       if (userCredential != null) {
                         Navigator.pushReplacement(
-                          context, MaterialPageRoute(builder: (_) => const HomePage()));
+                          context,
+                          MaterialPageRoute(builder: (_) => const HomePage()),
+                        );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Giriş başarısız')));
+                          const SnackBar(content: Text('Giriş başarısız')),
+                        );
                       }
                     },
                   ),
@@ -155,17 +152,25 @@ class _HomePageState extends State<HomePage> {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final TextEditingController _dataController = TextEditingController();
 
-  static const String backendUrl = "http://10.0.2.2:8000/alerts";
+  static const String backendUrl = "http://10.0.2.2:8000";
+
+  List<Map<String, dynamic>> bistList = [];
+  List<Map<String, dynamic>> nasdaqList = [];
+  List<Map<String, dynamic>> cryptoList = [];
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
     _requestPermission();
     _saveDeviceToken();
+    _fetchMarketLists();
+
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       if (message.notification != null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(message.notification!.title ?? 'Bildirim geldi!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message.notification!.title ?? 'Bildirim geldi!')),
+        );
       }
     });
   }
@@ -181,6 +186,25 @@ class _HomePageState extends State<HomePage> {
         'token': token,
         'email': user.email,
       });
+    }
+  }
+
+  Future<void> _fetchMarketLists() async {
+    setState(() => loading = true);
+    try {
+      final bistRes = await http.get(Uri.parse("$backendUrl/bist_companies"));
+      final nasdaqRes = await http.get(Uri.parse("$backendUrl/nasdaq_companies"));
+      final cryptoRes = await http.get(Uri.parse("$backendUrl/crypto_list"));
+
+      setState(() {
+        bistList = List<Map<String, dynamic>>.from(json.decode(bistRes.body));
+        nasdaqList = List<Map<String, dynamic>>.from(json.decode(nasdaqRes.body));
+        cryptoList = List<Map<String, dynamic>>.from(json.decode(cryptoRes.body));
+        loading = false;
+      });
+    } catch (e) {
+      print("Market list fetch error: $e");
+      setState(() => loading = false);
     }
   }
 
@@ -209,12 +233,32 @@ class _HomePageState extends State<HomePage> {
         'user_token': token,
       });
 
-      final res = await http.post(Uri.parse(backendUrl),
-          headers: {'Content-Type': 'application/json'}, body: body);
+      final res = await http.post(
+        Uri.parse("$backendUrl/alerts"),
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
       if (res.statusCode == 200) print("Backend alert kaydedildi");
     } catch (e) {
       print("Backend request hatası: $e");
     }
+  }
+
+  Widget _buildList(String title, List<Map<String, dynamic>> list) {
+    return Card(
+      color: Colors.grey[900],
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: ExpansionTile(
+        title: Text(title, style: const TextStyle(color: Color(0xFFFFD700))),
+        children: list
+            .map((item) => ListTile(
+                  title: Text(item['name'] ?? item['symbol'], style: const TextStyle(color: Colors.white)),
+                  subtitle: Text(item['symbol'], style: const TextStyle(color: Colors.grey)),
+                ))
+            .toList(),
+      ),
+    );
   }
 
   @override
@@ -224,10 +268,8 @@ class _HomePageState extends State<HomePage> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: Text(
-          'Market Watcher - ${user?.displayName ?? user?.email ?? ''}',
-          style: const TextStyle(color: Color(0xFFFFD700)),
-        ),
+        title: Text('Market Watcher - ${user?.displayName ?? user?.email ?? ''}',
+            style: const TextStyle(color: Color(0xFFFFD700))),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFFFFD700)),
@@ -238,72 +280,50 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Veri ekleme kartı
-            Card(
-              color: Colors.grey[900],
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _dataController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Yeni veri ekle...',
-                          hintStyle: TextStyle(color: Colors.grey),
+      body: loading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))
+          : Column(
+              children: [
+                // Veri ekleme kartı
+                Card(
+                  color: Colors.grey[900],
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _dataController,
+                            style: const TextStyle(color: Colors.white),
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              hintText: 'Yeni veri ekle...',
+                              hintStyle: TextStyle(color: Colors.grey),
+                            ),
+                          ),
                         ),
-                      ),
+                        IconButton(
+                          icon: const Icon(Icons.send, color: Color(0xFFFFD700)),
+                          onPressed: addData,
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.send, color: Color(0xFFFFD700)),
-                      onPressed: addData,
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      _buildList("BIST Companies", bistList),
+                      _buildList("NASDAQ Companies", nasdaqList),
+                      _buildList("Cryptocurrencies", cryptoList),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            // Veri listesi
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: _firestore
-                    .collection('market_data')
-                    .orderBy('timestamp', descending: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-                  final docs = snapshot.data!.docs;
-                  return ListView.builder(
-                    itemCount: docs.length,
-                    itemBuilder: (context, index) {
-                      final data = docs[index].data() as Map<String, dynamic>;
-                      return Card(
-                        color: Colors.grey[850],
-                        elevation: 2,
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        child: ListTile(
-                          leading: const Icon(Icons.show_chart, color: Color(0xFFFFD700)),
-                          title: Text(data['data'] ?? '', style: const TextStyle(color: Colors.white)),
-                          subtitle: Text(data['user'] ?? '', style: const TextStyle(color: Colors.grey)),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
