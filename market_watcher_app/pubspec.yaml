@@ -32,9 +32,13 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
 
-  # Firebase ve HTTP paketleri
-  firebase_core: ^4.1.0
-  firebase_messaging: ^16.0.1
+  # Firebase
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.17.8
+  cloud_firestore: ^4.15.8
+  firebase_messaging: ^14.7.10
+
+  # Diğer
   http: ^1.1.0
 
 dev_dependencies:
