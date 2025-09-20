@@ -280,7 +280,7 @@ class _HomePageState extends State<HomePage> {
                                       key: ValueKey(displayText),
                                       endActionPane: ActionPane(
                                         motion: const DrawerMotion(),
-                                        extentRatio: 0.22,
+                                        extentRatio: 0.15,
                                         children: [
                                           CustomSlidableAction(
                                             onPressed: (context) {
@@ -305,30 +305,49 @@ class _HomePageState extends State<HomePage> {
                                             backgroundColor: Colors.red,
                                             foregroundColor: Colors.white,
                                             padding: EdgeInsets.zero,
+                                            borderRadius: BorderRadius.circular(2),
                                             child: Icon(Icons.delete, size: 32, color: Colors.white),
                                           ),
                                         ],
                                       ),
-                                      child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 500),
-                                        curve: Curves.easeInOut,
-                                        transform: item['isDeleting']
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 500),
+                                          curve: Curves.easeInOut,
+                                          transform: item['isDeleting']
                                             ? Matrix4.translationValues(-500, 0, 0)
                                             : Matrix4.identity(),
-                                        child: ListTile(
-                                          dense: true,
-                                          title: Center(
-                                            child: Text(
-                                              displayText,
-                                              style: const TextStyle(color: Colors.white),
-                                            ),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[850],
+                                            borderRadius: BorderRadius.circular(2),
+                                            boxShadow: [
+                                              BoxShadow(
+                                              color: Colors.black.withOpacity(0.6),
+                                              blurRadius: 6,
+                                              offset: const Offset(2, 2),
+                                              ),
+                                            ],
                                           ),
-                                          onTap: () {
-                                            _openSetAlarmDialog(context,
-                                                editItem: item, index: index);
+                                          child: ListTile(
+                                            dense: true,
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                            leading: const Icon(Icons.notifications_active, color: Colors.amber, size: 28),
+                                          title: Text(
+                                            displayText,
+                                            style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
+                                        onTap: () {
+                                          _openSetAlarmDialog(context, editItem: item, index: index);
                                           },
+                                          ),
                                         ),
                                       ),
+
                                     ),
                                   );
                                 },
