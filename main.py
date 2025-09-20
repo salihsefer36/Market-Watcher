@@ -1,6 +1,6 @@
-import asyncio
 import os
-from datetime import datetime, timedelta
+import asyncio
+from datetime import datetime
 from typing import Optional, List, Dict
 
 from fastapi import FastAPI, HTTPException
@@ -9,8 +9,10 @@ from sqlmodel import SQLModel, Field, create_engine, Session, select
 
 import firebase_admin
 from firebase_admin import credentials, messaging
-from bs4 import BeautifulSoup
-import requests
+from dotenv import load_dotenv
+
+# .env dosyasını yükle
+load_dotenv()
 
 # Firebase
 cred = credentials.Certificate("market-watcher-14891-firebase-adminsdk-fbsvc-66f5a6893b.json")
@@ -21,6 +23,8 @@ DB_URL = os.getenv("DATABASE_URL", "sqlite:///./alerts.db")
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "30"))        # saniye
 NOTIFY_COOLDOWN = int(os.getenv("NOTIFY_COOLDOWN", "3600"))    # saniye
 CACHE_TTL = int(os.getenv("CACHE_TTL", "3600"))                # saniye
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")   # ✅ Artık .env'den alıyor
+FINNHUB_BASE = "https://finnhub.io/api/v1"
 
 engine = create_engine(DB_URL, echo=False)
 app = FastAPI(title="MarketWatcher Backend")
@@ -28,6 +32,9 @@ app = FastAPI(title="MarketWatcher Backend")
 # Cache
 cache: Dict[str, dict] = {}
 
+# ----------------------------
+# DB Model
+# ----------------------------
 class Alert(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     symbol: str = "CUSTOM"
@@ -44,6 +51,7 @@ class AlertCreate(SQLModel):
     threshold: float
     direction: Optional[str] = "above"
     user_token: Optional[str] = None
+    message: Optional[str] = None
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
@@ -64,7 +72,7 @@ async def on_shutdown():
             pass
 
 # ----------------------------
-# Alerts
+# Alerts CRUD
 # ----------------------------
 @app.post("/alerts", response_model=Alert)
 def create_alert(alert_in: AlertCreate):
@@ -75,7 +83,7 @@ def create_alert(alert_in: AlertCreate):
         symbol=alert_in.symbol.upper() if alert_in.symbol else "CUSTOM",
         threshold=alert_in.threshold,
         direction=direction,
-        message=getattr(alert_in, "message", None),
+        message=alert_in.message,
         user_token=alert_in.user_token
     )
     with Session(engine) as session:
@@ -101,29 +109,17 @@ def delete_alert(alert_id: int):
     return {"ok": True}
 
 # ----------------------------
-# Price Fetching
+# Finnhub Price Fetch
 # ----------------------------
-async def fetch_price(symbol: str) -> Optional[float]:
+async def fetch_price(symbol: str):
+    url = f"{FINNHUB_BASE}/quote"
+    params = {"symbol": symbol, "token": FINNHUB_API_KEY}
     async with httpx.AsyncClient(timeout=10) as client:
-        # Binance (crypto)
-        try:
-            r = await client.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": symbol})
-            if r.status_code == 200:
-                data = r.json()
-                if "price" in data:
-                    return float(data["price"])
-        except Exception:
-            pass
-        # Yahoo Finance fallback
-        try:
-            r = await client.get("https://query1.finance.yahoo.com/v7/finance/quote", params={"symbols": symbol})
-            if r.status_code == 200:
-                data = r.json()
-                result = data.get("quoteResponse", {}).get("result", [])
-                if result and "regularMarketPrice" in result[0] and result[0]["regularMarketPrice"] is not None:
-                    return float(result[0]["regularMarketPrice"])
-        except Exception:
-            pass
+        r = await client.get(url, params=params)
+        if r.status_code == 200:
+            data = r.json()
+            if "c" in data:
+                return float(data["c"])
     return None
 
 @app.get("/price/{symbol}")
@@ -134,74 +130,59 @@ async def get_price_endpoint(symbol: str):
     return {"symbol": symbol.upper(), "price": price}
 
 # ----------------------------
-# BIST Companies (Investing.com)
+# Finnhub Symbol Lists
 # ----------------------------
+async def fetch_symbols(exchange: str):
+    url = f"{FINNHUB_BASE}/stock/symbol"
+    params = {"exchange": exchange, "token": FINNHUB_API_KEY}
+    async with httpx.AsyncClient(timeout=20) as client:
+        r = await client.get(url, params=params)
+        if r.status_code == 200:
+            return r.json()
+    return []
+
 @app.get("/bist_companies")
-def get_bist_companies():
+async def get_bist_companies():
     now = datetime.utcnow()
     if "bist" in cache and (now - cache["bist"]["time"]).total_seconds() < CACHE_TTL:
         return cache["bist"]["data"]
 
-    url = "https://www.investing.com/indices/ise-100-components"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    r = requests.get(url, headers=headers)
-    companies = []
+    symbols = await fetch_symbols("IS")   # BIST (Istanbul)
+    data = [{"symbol": s["symbol"], "name": s.get("description", s["symbol"])} for s in symbols]
+    cache["bist"] = {"data": data, "time": now}
+    return data
 
-    if r.status_code == 200:
-        soup = BeautifulSoup(r.text, "html.parser")
-        table = soup.find("table", {"id": "constituents"})
-        if table:
-            for row in table.find_all("tr")[1:]:
-                cols = row.find_all("td")
-                if len(cols) > 1:
-                    symbol = cols[0].text.strip() + ".IS"
-                    name = cols[1].text.strip()
-                    companies.append({"symbol": symbol, "name": name})
-
-    cache["bist"] = {"data": companies, "time": now}
-    return companies
-
-# ----------------------------
-# NASDAQ Companies (Yahoo)
-# ----------------------------
 @app.get("/nasdaq_companies")
-def get_nasdaq_companies():
+async def get_nasdaq_companies():
     now = datetime.utcnow()
     if "nasdaq" in cache and (now - cache["nasdaq"]["time"]).total_seconds() < CACHE_TTL:
         return cache["nasdaq"]["data"]
 
-    # Örnek: statik NASDAQ listesi, dilersen Yahoo API ile otomatik çekilebilir
-    companies = [
-        {"symbol": "AAPL", "name": "Apple Inc."},
-        {"symbol": "TSLA", "name": "Tesla Inc."},
-        {"symbol": "NVDA", "name": "NVIDIA Corp."}
-    ]
-    cache["nasdaq"] = {"data": companies, "time": now}
-    return companies
+    symbols = await fetch_symbols("US")
+    nasdaq = [s for s in symbols if s.get("mic") == "XNAS"][:50]  # İlk 50
+    data = [{"symbol": s["symbol"], "name": s.get("description", s["symbol"])} for s in nasdaq]
+    cache["nasdaq"] = {"data": data, "time": now}
+    return data
 
-# ----------------------------
-# Crypto list (Binance)
-# ----------------------------
 @app.get("/crypto_list")
 async def get_crypto_list():
     now = datetime.utcnow()
     if "crypto" in cache and (now - cache["crypto"]["time"]).total_seconds() < CACHE_TTL:
         return cache["crypto"]["data"]
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        r = await client.get("https://api.binance.com/api/v3/ticker/price")
-        crypto_list = []
+    url = f"{FINNHUB_BASE}/crypto/symbol"
+    params = {"exchange": "BINANCE", "token": FINNHUB_API_KEY}
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.get(url, params=params)
+        data = []
         if r.status_code == 200:
-            data = r.json()
-            for item in data:
-                symbol = item.get("symbol", "")
-                if symbol.endswith("USDT"):
-                    crypto_list.append({"symbol": symbol})
-    cache["crypto"] = {"data": crypto_list, "time": now}
-    return crypto_list
+            symbols = r.json()
+            data = [{"symbol": s["symbol"], "name": s["displaySymbol"]} for s in symbols]
+    cache["crypto"] = {"data": data, "time": now}
+    return data
 
 # ----------------------------
-# Price Check Loop (Push Notification)
+# Notifications
 # ----------------------------
 def send_push_notification(token: str, title: str, body: str):
     try:
@@ -220,7 +201,7 @@ async def price_check_loop():
             with Session(engine) as session:
                 alerts = session.exec(select(Alert).where(Alert.active == True)).all()
             for alert in alerts:
-                # Flutter'dan gelen mesaj varsa push anında
+                # Eğer mesaj varsa direkt gönder
                 if alert.message and alert.user_token:
                     now = datetime.utcnow()
                     if not alert.last_notified_at or (now - alert.last_notified_at).total_seconds() > NOTIFY_COOLDOWN:
@@ -233,7 +214,6 @@ async def price_check_loop():
                         with Session(engine) as session:
                             session.add(alert)
                             session.commit()
-                # Fiyat alarmı
                 else:
                     price = await fetch_price(alert.symbol)
                     if price is not None:
