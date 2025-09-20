@@ -41,6 +41,7 @@ cache: Dict[str, dict] = {}
 # DB Model
 # ----------------------------
 class Alert(SQLModel, table=True):
+    __table_args__ = {"extend_existing": True}  # <- Bu satır eklendi
     id: Optional[int] = Field(default=None, primary_key=True)
     symbol: str = "CUSTOM"
     threshold: float = 0
