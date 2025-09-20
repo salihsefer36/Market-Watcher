@@ -271,45 +271,50 @@ class _HomePageState extends State<HomePage> {
                                   final displayText =
                                       "${index + 1}. ${item['market']} - ${item['symbol']} - ${item['percentage']}%";
 
+                                  // Silinecek mi kontrolü için flag ekliyoruz
+                                  item.putIfAbsent('isDeleting', () => false);
+
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(vertical: 4),
                                     child: Slidable(
                                       key: ValueKey(displayText),
                                       endActionPane: ActionPane(
                                         motion: const DrawerMotion(),
-                                        extentRatio: 0.22, // daha geniş, estetik
+                                        extentRatio: 0.22,
                                         children: [
-                                          SlidableAction(
+                                          CustomSlidableAction(
                                             onPressed: (context) {
-                                              // Smooth delete
-                                              final removedItem = _followedItems[index];
                                               setState(() {
-                                                _followedItems.removeAt(index);
+                                                _followedItems[index]['isDeleting'] = true;
                                               });
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(
-                                                  content: Text(
-                                                      '${removedItem['market']} ${removedItem['symbol']} deleted'),
-                                                  duration: const Duration(milliseconds: 800),
-                                                ),
-                                              );
+                                              // 0.5 saniye sonra tamamen sil
+                                              Future.delayed(const Duration(milliseconds: 500), () {
+                                                final removedItem = _followedItems[index];
+                                                setState(() {
+                                                  _followedItems.removeAt(index);
+                                                });
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                        '${removedItem['market']} ${removedItem['symbol']} deleted'),
+                                                    duration: const Duration(milliseconds: 800),
+                                                  ),
+                                                );
+                                              });
                                             },
                                             backgroundColor: Colors.red,
                                             foregroundColor: Colors.white,
-                                            icon: Icons.delete,
-                                            label: '', // yazı kaldırıldı
-                                            borderRadius: BorderRadius.circular(1),
-                                            spacing: 0, // ikon ortalandı
+                                            padding: EdgeInsets.zero,
+                                            child: Icon(Icons.delete, size: 32, color: Colors.white),
                                           ),
                                         ],
                                       ),
                                       child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 300),
+                                        duration: const Duration(milliseconds: 500),
                                         curve: Curves.easeInOut,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[850],
-                                          borderRadius: BorderRadius.circular(1),
-                                        ),
+                                        transform: item['isDeleting']
+                                            ? Matrix4.translationValues(-500, 0, 0)
+                                            : Matrix4.identity(),
                                         child: ListTile(
                                           dense: true,
                                           title: Center(
@@ -372,8 +377,7 @@ class _HomePageState extends State<HomePage> {
                         .map((m) => DropdownMenuItem(
                               value: m,
                               child: Text(m,
-                                  style:
-                                      const TextStyle(color: Colors.white)),
+                                  style: const TextStyle(color: Colors.white)),
                             ))
                         .toList(),
                     onChanged: (value) {
@@ -411,8 +415,7 @@ class _HomePageState extends State<HomePage> {
                         .map((p) => DropdownMenuItem(
                               value: p.toDouble(),
                               child: Text('$p%',
-                                  style:
-                                      const TextStyle(color: Colors.white)),
+                                  style: const TextStyle(color: Colors.white)),
                             ))
                         .toList(),
                     onChanged: (value) =>
