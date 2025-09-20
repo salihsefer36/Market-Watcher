@@ -46,11 +46,7 @@ class AuthGate extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
-        if (!snapshot.hasData) {
-          return const LoginPage();
-        }  else {
-         return const HomePage();
-        }
+       return const HomePage();
       },
     );
   }
@@ -156,7 +152,7 @@ class _HomePageState extends State<HomePage> {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final TextEditingController _dataController = TextEditingController();
 
-  static const String backendUrl = "http://10.0.2.2:8000";
+  static const String backendUrl = "http://192.168.0.104:8000";
 
   List<Map<String, dynamic>> bistList = [];
   List<Map<String, dynamic>> nasdaqList = [];
@@ -193,19 +189,16 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _fetchMarketLists() async {
+    Future<void> _fetchMarketLists() async {
     setState(() => loading = true);
     try {
       final responses = await Future.wait([
-        http.get(Uri.parse("$backendUrl/bist_companies"))
-            .timeout(const Duration(seconds: 10)),
-        http.get(Uri.parse("$backendUrl/nasdaq_companies"))
-            .timeout(const Duration(seconds: 10)),
-        http.get(Uri.parse("$backendUrl/crypto_list"))
-            .timeout(const Duration(seconds: 10)),
+        http.get(Uri.parse("$backendUrl/bist_prices")).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse("$backendUrl/nasdaq_prices?n=10")).timeout(const Duration(seconds: 15)),
+        http.get(Uri.parse("$backendUrl/crypto_prices?n=10")).timeout(const Duration(seconds: 15)),
       ]);
 
-      setState(() {
+        setState(() {
         bistList = List<Map<String, dynamic>>.from(json.decode(responses[0].body));
         nasdaqList = List<Map<String, dynamic>>.from(json.decode(responses[1].body));
         cryptoList = List<Map<String, dynamic>>.from(json.decode(responses[2].body));
@@ -221,6 +214,7 @@ class _HomePageState extends State<HomePage> {
       }
     }
   }
+
 
   Future<void> addData() async {
     final user = _auth.currentUser;
@@ -259,21 +253,22 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildList(String title, List<Map<String, dynamic>> list) {
-    return Card(
-      color: Colors.grey[900],
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      child: ExpansionTile(
-        title: Text(title, style: const TextStyle(color: Color(0xFFFFD700))),
-        children: list
-            .map((item) => ListTile(
-                  title: Text(item['name'] ?? item['symbol'], style: const TextStyle(color: Colors.white)),
-                  subtitle: Text(item['symbol'], style: const TextStyle(color: Colors.grey)),
-                ))
-            .toList(),
-      ),
-    );
-  }
+Widget _buildList(String title, List<Map<String, dynamic>> list) {
+  return Card(
+    color: Colors.grey[900],
+    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+    child: ExpansionTile(
+      title: Text(title, style: const TextStyle(color: Color(0xFFFFD700))),
+      children: list
+          .map((item) => ListTile(
+                title: Text(item['symbol'], style: const TextStyle(color: Colors.white)),
+                subtitle: Text(item['price'] != null ? item['price'].toString() : "Veri yok",
+                    style: const TextStyle(color: Colors.grey)),
+              ))
+          .toList(),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
