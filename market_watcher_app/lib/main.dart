@@ -46,7 +46,11 @@ class AuthGate extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
+        if (!snapshot.hasData) {
+          return const LoginPage();
+        }  else {
          return const HomePage();
+        }
       },
     );
   }
@@ -192,19 +196,29 @@ class _HomePageState extends State<HomePage> {
   Future<void> _fetchMarketLists() async {
     setState(() => loading = true);
     try {
-      final bistRes = await http.get(Uri.parse("$backendUrl/bist_companies"));
-      final nasdaqRes = await http.get(Uri.parse("$backendUrl/nasdaq_companies"));
-      final cryptoRes = await http.get(Uri.parse("$backendUrl/crypto_list"));
+      final responses = await Future.wait([
+        http.get(Uri.parse("$backendUrl/bist_companies"))
+            .timeout(const Duration(seconds: 10)),
+        http.get(Uri.parse("$backendUrl/nasdaq_companies"))
+            .timeout(const Duration(seconds: 10)),
+        http.get(Uri.parse("$backendUrl/crypto_list"))
+            .timeout(const Duration(seconds: 10)),
+      ]);
 
       setState(() {
-        bistList = List<Map<String, dynamic>>.from(json.decode(bistRes.body));
-        nasdaqList = List<Map<String, dynamic>>.from(json.decode(nasdaqRes.body));
-        cryptoList = List<Map<String, dynamic>>.from(json.decode(cryptoRes.body));
+        bistList = List<Map<String, dynamic>>.from(json.decode(responses[0].body));
+        nasdaqList = List<Map<String, dynamic>>.from(json.decode(responses[1].body));
+        cryptoList = List<Map<String, dynamic>>.from(json.decode(responses[2].body));
         loading = false;
       });
     } catch (e) {
       print("Market list fetch error: $e");
       setState(() => loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Veriler alınamadı, lütfen tekrar deneyin.")),
+        );
+      }
     }
   }
 
