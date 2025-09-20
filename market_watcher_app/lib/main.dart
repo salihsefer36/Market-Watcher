@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'firebase_options.dart';
 import 'package:flutter/foundation.dart';
 
@@ -17,7 +14,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   runApp(const MyApp());
 }
@@ -29,32 +25,47 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Market Watcher',
-      theme: ThemeData(primarySwatch: Colors.blue),
-      home: const AuthGate(),
+      theme: ThemeData(
+        scaffoldBackgroundColor: Colors.black,
+        primarySwatch: Colors.amber,
+        cardTheme: CardThemeData(
+          color: Colors.grey[900],
+          elevation: 6,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          border: InputBorder.none,
+          hintStyle: TextStyle(color: Colors.grey),
+        ),
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Colors.white),
+        ),
+      ),
+      home: AuthGate(), // const kaldırıldı
     );
   }
 }
 
 class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
-
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator(color: Colors.amber)),
+          );
         }
-       return const HomePage();
+          return HomePage();
       },
     );
   }
 }
 
 class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
-
   Future<UserCredential?> signInWithGoogle() async {
     try {
       if (kIsWeb) {
@@ -79,58 +90,51 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        color: Colors.black,
-        child: Center(
-          child: Card(
-            color: Colors.grey[900],
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 8,
-            margin: const EdgeInsets.symmetric(horizontal: 32),
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Market Watcher',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFFFD700),
-                    ),
+      body: Center(
+        child: Card(
+          color: Colors.grey[900],
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 8,
+          margin: const EdgeInsets.symmetric(horizontal: 32),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Market Watcher',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFFFD700),
                   ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    icon: Image.asset(
-                      'assets/images/google_logo.png',
-                      height: 24,
-                      width: 24,
-                    ),
-                    label: const Text('Google ile Giriş Yap'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Color(0xFFFFD700),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () async {
-                      final userCredential = await signInWithGoogle();
-                      if (userCredential != null) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const HomePage()),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Giriş başarısız')),
-                        );
-                      }
-                    },
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  icon: Image.asset('assets/images/google_logo.png', height: 24, width: 24),
+                  label: const Text('Google ile Giriş Yap'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Color(0xFFFFD700),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
-                ],
-              ),
+                  onPressed: () async {
+                    final userCredential = await signInWithGoogle();
+                    if (userCredential != null) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => HomePage()),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Giriş başarısız')),
+                      );
+                    }
+                  },
+                ),
+              ],
             ),
           ),
         ),
@@ -140,135 +144,14 @@ class LoginPage extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
-
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  final TextEditingController _dataController = TextEditingController();
 
-  static const String backendUrl = "http://192.168.0.104:8000";
-
-  List<Map<String, dynamic>> bistList = [];
-  List<Map<String, dynamic>> nasdaqList = [];
-  List<Map<String, dynamic>> cryptoList = [];
-  bool loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _requestPermission();
-    _saveDeviceToken();
-    _fetchMarketLists();
-
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      if (message.notification != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message.notification!.title ?? 'Bildirim geldi!')),
-        );
-      }
-    });
-  }
-
-  Future<void> _requestPermission() async => await _messaging.requestPermission();
-
-  Future<void> _saveDeviceToken() async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-    final token = await _messaging.getToken();
-    if (token != null) {
-      await _firestore.collection('user_tokens').doc(user.uid).set({
-        'token': token,
-        'email': user.email,
-      });
-    }
-  }
-
-    Future<void> _fetchMarketLists() async {
-    setState(() => loading = true);
-    try {
-      final responses = await Future.wait([
-        http.get(Uri.parse("$backendUrl/bist_prices")).timeout(const Duration(seconds: 15)),
-        http.get(Uri.parse("$backendUrl/nasdaq_prices?n=10")).timeout(const Duration(seconds: 15)),
-        http.get(Uri.parse("$backendUrl/crypto_prices?n=10")).timeout(const Duration(seconds: 15)),
-      ]);
-
-        setState(() {
-        bistList = List<Map<String, dynamic>>.from(json.decode(responses[0].body));
-        nasdaqList = List<Map<String, dynamic>>.from(json.decode(responses[1].body));
-        cryptoList = List<Map<String, dynamic>>.from(json.decode(responses[2].body));
-        loading = false;
-      });
-    } catch (e) {
-      print("Market list fetch error: $e");
-      setState(() => loading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Veriler alınamadı, lütfen tekrar deneyin.")),
-        );
-      }
-    }
-  }
-
-
-  Future<void> addData() async {
-    final user = _auth.currentUser;
-    if (user == null || _dataController.text.isEmpty) return;
-
-    final message = _dataController.text;
-    await _firestore.collection('market_data').add({
-      'user': user.email,
-      'data': message,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-    _dataController.clear();
-
-    try {
-      final tokenDoc = await _firestore.collection('user_tokens').doc(user.uid).get();
-      final token = tokenDoc.data()?['token'];
-      if (token == null) return;
-
-      final body = json.encode({
-        'symbol': 'CUSTOM',
-        'threshold': 0,
-        'direction': 'above',
-        'message': message,
-        'user_token': token,
-      });
-
-      final res = await http.post(
-        Uri.parse("$backendUrl/alerts"),
-        headers: {'Content-Type': 'application/json'},
-        body: body,
-      );
-
-      if (res.statusCode == 200) print("Backend alert kaydedildi");
-    } catch (e) {
-      print("Backend request hatası: $e");
-    }
-  }
-
-Widget _buildList(String title, List<Map<String, dynamic>> list) {
-  return Card(
-    color: Colors.grey[900],
-    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-    child: ExpansionTile(
-      title: Text(title, style: const TextStyle(color: Color(0xFFFFD700))),
-      children: list
-          .map((item) => ListTile(
-                title: Text(item['symbol'], style: const TextStyle(color: Colors.white)),
-                subtitle: Text(item['price'] != null ? item['price'].toString() : "Veri yok",
-                    style: const TextStyle(color: Colors.grey)),
-              ))
-          .toList(),
-    ),
-  );
-}
+  final List<Map<String, dynamic>> _followedItems = [];
 
   @override
   Widget build(BuildContext context) {
@@ -277,62 +160,325 @@ Widget _buildList(String title, List<Map<String, dynamic>> list) {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: Text('Market Watcher - ${user?.displayName ?? user?.email ?? ''}',
-            style: const TextStyle(color: Color(0xFFFFD700))),
+        title: Text(
+          'Market Watcher - ${user?.displayName ?? user?.email ?? ''}',
+          style: const TextStyle(color: Color(0xFFFFD700)),
+        ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.language, color: Color(0xFFFFD700)),
+            onPressed: () {
+              // TODO: Dil değiştirme mekanizması
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFFFFD700)),
             onPressed: () async {
               await _auth.signOut();
               await GoogleSignIn().signOut();
+              if (!mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => AuthGate()),
+              );
             },
           ),
         ],
       ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD700)))
-          : Column(
-              children: [
-                // Veri ekleme kartı
-                Card(
-                  color: Colors.grey[900],
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _dataController,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: const InputDecoration(
-                              border: InputBorder.none,
-                              hintText: 'Yeni veri ekle...',
-                              hintStyle: TextStyle(color: Colors.grey),
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.send, color: Color(0xFFFFD700)),
-                          onPressed: addData,
-                        ),
-                      ],
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Sol taraf: Butonlar
+            Expanded(
+              flex: 2,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => _openSetAlarmDialog(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber[700],
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(150, 60), // yarıya küçültüldü
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text(
+                      'Set Alarm',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      _buildList("BIST Companies", bistList),
-                      _buildList("NASDAQ Companies", nasdaqList),
-                      _buildList("Cryptocurrencies", cryptoList),
-                    ],
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => WatchMarketPage()),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber[700],
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(150, 60), // yarıya küçültüldü
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text(
+                      'Watch Market',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+            const SizedBox(width: 24),
+
+            // Sağ taraf: Followed Panel
+            Expanded(
+              flex: 1,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[900],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber, width: 1),
+                ),
+                child: Column(
+                  children: [
+                    const Center(
+                      child: Text(
+                        "Followed",
+                        style: TextStyle(
+                          color: Colors.amber,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const Divider(color: Colors.amber),
+                    Expanded(
+                      child: _followedItems.isEmpty
+                          ? const Center(
+                              child: Text(
+                                "No alarms yet",
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: _followedItems.length,
+                              itemBuilder: (context, index) {
+                                final item = _followedItems[index];
+                                final displayText =
+                                    "${index + 1}. ${item['market']} - ${item['symbol']} - ${item['percentage']}%";
+
+                                return Dismissible(
+                                  key: Key(displayText),
+                                  direction: DismissDirection.endToStart,
+                                  background: Container(
+                                    color: Colors.red,
+                                    alignment: Alignment.centerRight,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                                    child: const Icon(Icons.delete, color: Colors.white),
+                                  ),
+                                  onDismissed: (_) {
+                                    setState(() {
+                                      _followedItems.removeAt(index);
+                                    });
+                                  },
+                                  child: ListTile(
+                                    dense: true,
+                                    title: Center(
+                                      child: Text(
+                                        displayText,
+                                        style: const TextStyle(color: Colors.white),
+                                      ),
+                                    ),
+                                    onTap: () {
+                                      _openSetAlarmDialog(context,
+                                          editItem: item, index: index);
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openSetAlarmDialog(BuildContext context,
+      {Map<String, dynamic>? editItem, int? index}) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        String? selectedMarket = editItem?['market'];
+        String? selectedSymbol = editItem?['symbol'];
+        double? selectedPercentage = editItem?['percentage'];
+
+        final markets = ['BIST', 'NASDAQ', 'CRYPTO', 'METALS'];
+        final percentages = [1, 2, 5, 10];
+
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Text(
+            editItem == null ? 'Set Alarm' : 'Edit Alarm',
+            style: const TextStyle(color: Colors.amber),
+          ),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButton<String>(
+                    dropdownColor: Colors.grey[850],
+                    hint: const Text('Select Market',
+                        style: TextStyle(color: Colors.white)),
+                    value: selectedMarket,
+                    items: markets
+                        .map((m) => DropdownMenuItem(
+                              value: m,
+                              child: Text(m,
+                                  style:
+                                      const TextStyle(color: Colors.white)),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedMarket = value;
+                        selectedSymbol = null;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  if (selectedMarket != null)
+                    DropdownButton<String>(
+                      dropdownColor: Colors.grey[850],
+                      hint: const Text('Select Symbol',
+                          style: TextStyle(color: Colors.white)),
+                      value: selectedSymbol,
+                      items: _getSymbolsForMarket(selectedMarket!)
+                          .map((s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(s,
+                                    style: const TextStyle(
+                                        color: Colors.white)),
+                              ))
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => selectedSymbol = value),
+                    ),
+                  const SizedBox(height: 12),
+                  DropdownButton<double>(
+                    dropdownColor: Colors.grey[850],
+                    hint: const Text('Select Change %',
+                        style: TextStyle(color: Colors.white)),
+                    value: selectedPercentage,
+                    items: percentages
+                        .map((p) => DropdownMenuItem(
+                              value: p.toDouble(),
+                              child: Text('$p%',
+                                  style:
+                                      const TextStyle(color: Colors.white)),
+                            ))
+                        .toList(),
+                    onChanged: (value) =>
+                        setState(() => selectedPercentage = value),
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel',
+                  style: TextStyle(color: Colors.white)),
+            ),
+            TextButton(
+              onPressed: () {
+                if (selectedMarket != null &&
+                    selectedSymbol != null &&
+                    selectedPercentage != null) {
+                  // duplicate kontrolü
+                  final exists = _followedItems.any((item) =>
+                      item['market'] == selectedMarket &&
+                      item['symbol'] == selectedSymbol &&
+                      (index == null || _followedItems.indexOf(item) != index));
+
+                  if (exists) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text("This alarm already exists!"),
+                      backgroundColor: Colors.red,
+                    ));
+                    return;
+                  }
+
+                  final newItem = {
+                    "market": selectedMarket,
+                    "symbol": selectedSymbol,
+                    "percentage": selectedPercentage,
+                  };
+
+                  setState(() {
+                    if (index != null) {
+                      _followedItems[index] = newItem;
+                    } else {
+                      _followedItems.add(newItem);
+                    }
+                  });
+
+                  Navigator.pop(context);
+                }
+              },
+              child: Text(editItem == null ? 'Set' : 'Update',
+                  style: const TextStyle(color: Colors.amber)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  List<String> _getSymbolsForMarket(String market) {
+    switch (market) {
+      case 'BIST':
+        return ['THYAO', 'ASELS', 'GARAN', 'AKBNK'];
+      case 'NASDAQ':
+        return ['TSLA', 'NVDA', 'AAPL', 'MSFT'];
+      case 'CRYPTO':
+        return ['BTCUSDT', 'ETHUSDT', 'BNBUSDT'];
+      case 'METALS':
+        return ['Gold', 'Silver', 'Copper'];
+      default:
+        return [];
+    }
+  }
+}
+
+class WatchMarketPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.amber),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Watch Market',
+            style: TextStyle(color: Color(0xFFFFD700))),
+        backgroundColor: Colors.black,
+      ),
+      backgroundColor: Colors.black,
+      body: const Center(
+        child: Text('Market prices will appear here',
+            style: TextStyle(color: Colors.white)),
+      ),
     );
   }
 }
