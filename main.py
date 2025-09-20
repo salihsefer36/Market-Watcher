@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional, List, Dict
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from sqlmodel import SQLModel, Field, create_engine, Session, select
 import yfinance as yf
@@ -34,6 +35,15 @@ CACHE_TTL = int(os.getenv("CACHE_TTL", "3600"))
 engine = create_engine(DB_URL, echo=False)
 app = FastAPI(title="MarketWatcher Backend")
 
+# CORS serbest
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Cache
 cache: Dict[str, dict] = {}
 
@@ -61,6 +71,27 @@ class AlertCreate(SQLModel):
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
+
+@app.get("/markets")
+def get_markets():
+    return {
+        "Metals": [
+            {"name": "Gold", "price": 1925.50},
+            {"name": "Silver", "price": 23.40},
+        ],
+        "BIST": [
+            {"name": "ASELS", "price": 68.90},
+            {"name": "THYAO", "price": 245.10},
+        ],
+        "NASDAQ": [
+            {"name": "AAPL", "price": 187.25},
+            {"name": "MSFT", "price": 328.45},
+        ],
+        "Crypto Currencies": [
+            {"name": "BTC", "price": 67500.20},
+            {"name": "ETH", "price": 3450.80},
+        ],
+    }
 
 @app.on_event("startup")
 async def on_startup():

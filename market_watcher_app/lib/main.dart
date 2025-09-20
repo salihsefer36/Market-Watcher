@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'firebase_options.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -43,7 +44,7 @@ class MyApp extends StatelessWidget {
           bodyMedium: TextStyle(color: Colors.white),
         ),
       ),
-      home: AuthGate(), // const kaldırıldı
+      home: AuthGate(),
     );
   }
 }
@@ -59,7 +60,7 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator(color: Colors.amber)),
           );
         }
-          return HomePage();
+        return HomePage();
       },
     );
   }
@@ -150,7 +151,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
   final List<Map<String, dynamic>> _followedItems = [];
 
   @override
@@ -167,9 +167,7 @@ class _HomePageState extends State<HomePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.language, color: Color(0xFFFFD700)),
-            onPressed: () {
-              // TODO: Dil değiştirme mekanizması
-            },
+            onPressed: () {},
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFFFFD700)),
@@ -201,7 +199,7 @@ class _HomePageState extends State<HomePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.amber[700],
                       foregroundColor: Colors.black,
-                      minimumSize: const Size(150, 60), // yarıya küçültüldü
+                      minimumSize: const Size(150, 60),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
@@ -219,7 +217,7 @@ class _HomePageState extends State<HomePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.amber[700],
                       foregroundColor: Colors.black,
-                      minimumSize: const Size(150, 60), // yarıya küçültüldü
+                      minimumSize: const Size(150, 60),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
@@ -243,66 +241,96 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.amber, width: 1),
                 ),
-                child: Column(
-                  children: [
-                    const Center(
-                      child: Text(
-                        "Followed",
-                        style: TextStyle(
-                          color: Colors.amber,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Column(
+                    children: [
+                      const Center(
+                        child: Text(
+                          "Followed",
+                          style: TextStyle(
+                            color: Colors.amber,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                    const Divider(color: Colors.amber),
-                    Expanded(
-                      child: _followedItems.isEmpty
-                          ? const Center(
-                              child: Text(
-                                "No alarms yet",
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: _followedItems.length,
-                              itemBuilder: (context, index) {
-                                final item = _followedItems[index];
-                                final displayText =
-                                    "${index + 1}. ${item['market']} - ${item['symbol']} - ${item['percentage']}%";
+                      const Divider(color: Colors.amber),
+                      Expanded(
+                        child: _followedItems.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  "No alarms yet",
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: _followedItems.length,
+                                itemBuilder: (context, index) {
+                                  final item = _followedItems[index];
+                                  final displayText =
+                                      "${index + 1}. ${item['market']} - ${item['symbol']} - ${item['percentage']}%";
 
-                                return Dismissible(
-                                  key: Key(displayText),
-                                  direction: DismissDirection.endToStart,
-                                  background: Container(
-                                    color: Colors.red,
-                                    alignment: Alignment.centerRight,
-                                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                                    child: const Icon(Icons.delete, color: Colors.white),
-                                  ),
-                                  onDismissed: (_) {
-                                    setState(() {
-                                      _followedItems.removeAt(index);
-                                    });
-                                  },
-                                  child: ListTile(
-                                    dense: true,
-                                    title: Center(
-                                      child: Text(
-                                        displayText,
-                                        style: const TextStyle(color: Colors.white),
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    child: Slidable(
+                                      key: ValueKey(displayText),
+                                      endActionPane: ActionPane(
+                                        motion: const DrawerMotion(),
+                                        extentRatio: 0.22, // daha geniş, estetik
+                                        children: [
+                                          SlidableAction(
+                                            onPressed: (context) {
+                                              // Smooth delete
+                                              final removedItem = _followedItems[index];
+                                              setState(() {
+                                                _followedItems.removeAt(index);
+                                              });
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                      '${removedItem['market']} ${removedItem['symbol']} deleted'),
+                                                  duration: const Duration(milliseconds: 800),
+                                                ),
+                                              );
+                                            },
+                                            backgroundColor: Colors.red,
+                                            foregroundColor: Colors.white,
+                                            icon: Icons.delete,
+                                            label: '', // yazı kaldırıldı
+                                            borderRadius: BorderRadius.circular(1),
+                                            spacing: 0, // ikon ortalandı
+                                          ),
+                                        ],
+                                      ),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 300),
+                                        curve: Curves.easeInOut,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey[850],
+                                          borderRadius: BorderRadius.circular(1),
+                                        ),
+                                        child: ListTile(
+                                          dense: true,
+                                          title: Center(
+                                            child: Text(
+                                              displayText,
+                                              style: const TextStyle(color: Colors.white),
+                                            ),
+                                          ),
+                                          onTap: () {
+                                            _openSetAlarmDialog(context,
+                                                editItem: item, index: index);
+                                          },
+                                        ),
                                       ),
                                     ),
-                                    onTap: () {
-                                      _openSetAlarmDialog(context,
-                                          editItem: item, index: index);
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -405,7 +433,6 @@ class _HomePageState extends State<HomePage> {
                 if (selectedMarket != null &&
                     selectedSymbol != null &&
                     selectedPercentage != null) {
-                  // duplicate kontrolü
                   final exists = _followedItems.any((item) =>
                       item['market'] == selectedMarket &&
                       item['symbol'] == selectedSymbol &&
