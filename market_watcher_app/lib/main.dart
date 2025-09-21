@@ -546,7 +546,7 @@ class WatchMarketPage extends StatefulWidget {
 }
 
 class _WatchMarketPageState extends State<WatchMarketPage> {
-  final String backendBaseUrl = "http://127.0.0.1:8000"; // backend URL
+  final String backendBaseUrl = "http://127.0.0.1:8000"; // Backend URL
   Map<String, List<Map<String, dynamic>>> marketData = {
     "BIST": [],
     "NASDAQ": [],
@@ -563,32 +563,110 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
 
   Future<void> fetchAllMarkets() async {
     setState(() => loading = true);
-
     try {
-      final bistRes = await http.get(Uri.parse("$backendBaseUrl/bist_prices"));
-      final nasdaqRes = await http.get(Uri.parse("$backendBaseUrl/nasdaq_prices"));
-      final cryptoRes = await http.get(Uri.parse("$backendBaseUrl/crypto_prices"));
-      final metalsRes = await http.get(Uri.parse("$backendBaseUrl/metals"));
+      final responses = await Future.wait([
+        http.get(Uri.parse("$backendBaseUrl/symbols_with_name?market=BIST")),
+        http.get(Uri.parse("$backendBaseUrl/symbols_with_name?market=NASDAQ")),
+        http.get(Uri.parse("$backendBaseUrl/symbols_with_name?market=CRYPTO")),
+        http.get(Uri.parse("$backendBaseUrl/metals")),
+      ]);
 
-      if (bistRes.statusCode == 200) {
-        marketData["BIST"] = List<Map<String, dynamic>>.from(jsonDecode(bistRes.body));
+      final bistSymbolsRes = responses[0];
+      final nasdaqSymbolsRes = responses[1];
+      final cryptoSymbolsRes = responses[2];
+      final metalsRes = responses[3];
+
+      if (bistSymbolsRes.statusCode == 200) {
+        List<dynamic> list = jsonDecode(bistSymbolsRes.body);
+        marketData["BIST"] = list.map<Map<String, dynamic>>((e) {
+          return {
+            "symbol": e['symbol'] ?? '',
+            "name": e['name'] ?? e['symbol'] ?? '',
+            "price": null,
+          };
+        }).toList();
       }
-      if (nasdaqRes.statusCode == 200) {
-        marketData["NASDAQ"] = List<Map<String, dynamic>>.from(jsonDecode(nasdaqRes.body));
+
+      if (nasdaqSymbolsRes.statusCode == 200) {
+        List<dynamic> list = jsonDecode(nasdaqSymbolsRes.body);
+        marketData["NASDAQ"] = list.map<Map<String, dynamic>>((e) {
+          return {
+            "symbol": e['symbol'] ?? '',
+            "name": e['name'] ?? e['symbol'] ?? '',
+            "price": null,
+          };
+        }).toList();
       }
-      if (cryptoRes.statusCode == 200) {
-        marketData["CRYPTO"] = List<Map<String, dynamic>>.from(jsonDecode(cryptoRes.body));
+
+      if (cryptoSymbolsRes.statusCode == 200) {
+        List<dynamic> list = jsonDecode(cryptoSymbolsRes.body);
+        marketData["CRYPTO"] = list.map<Map<String, dynamic>>((e) {
+          return {
+            "symbol": e['symbol'] ?? '',
+            "name": e['name'] ?? e['symbol'] ?? '',
+            "price": null,
+          };
+        }).toList();
       }
+
       if (metalsRes.statusCode == 200) {
-        final metalsMap = Map<String, dynamic>.from(jsonDecode(metalsRes.body));
-        marketData["METALS"] = metalsMap.entries
-            .map((e) => {"symbol": e.key, "price": e.value})
-            .toList();
+        Map<String, dynamic> metalsMap = jsonDecode(metalsRes.body);
+        marketData["METALS"] = metalsMap.entries.map<Map<String, dynamic>>((e) {
+          final priceValue = e.value;
+          double? price;
+          if (priceValue != null && (priceValue is num)) {
+            price = priceValue.toDouble();
+          }
+          return {
+            "symbol": e.key,
+            "name": e.key,
+            "price": price,
+          };
+        }).toList();
       }
+
+      // Şimdi fiyatları ayrı endpointten çekip güncelleyelim
+      await fetchAllPrices();
+
     } catch (e) {
       print("Error fetching market data: $e");
     } finally {
       setState(() => loading = false);
+    }
+  }
+
+  Future<void> fetchAllPrices() async {
+    try {
+      final res = await http.get(Uri.parse("$backendBaseUrl/prices"));
+      if (res.statusCode == 200) {
+        List<dynamic> pricesList = jsonDecode(res.body);
+        Map<String, double?> priceMap = {};
+        for (var p in pricesList) {
+          if (p['symbol'] != null) {
+            final key = p['symbol'];
+            final priceValue = p['price'];
+            double? price;
+            if (priceValue != null && priceValue is num) {
+              price = priceValue.toDouble();
+            }
+            priceMap[key] = price;
+          }
+        }
+
+        // Fiyatları marketData ile eşleştir
+        marketData.forEach((market, list) {
+          for (var item in list) {
+            final sym = item['symbol'];
+            if (sym != null && priceMap.containsKey(sym)) {
+              item['price'] = priceMap[sym];
+            }
+          }
+        });
+      }
+    } catch (e) {
+      print("Error fetching prices: $e");
+    } finally {
+      setState(() {});
     }
   }
 
@@ -646,11 +724,30 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
         ),
         child: Column(
           children: [
-            Text(
-              market,
-              style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16),
+            // Market başlığı
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Center(
+                child: Text(
+                  market,
+                  style: const TextStyle(
+                      color: Colors.amber,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16),
+                ),
+              ),
             ),
             const Divider(color: Colors.amber),
+            // Sütun başlıkları
+            Row(
+              children: const [
+                Expanded(flex: 2, child: Center(child: Text("Symbol", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)))),
+                Expanded(flex: 5, child: Center(child: Text("Name", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)))),
+                Expanded(flex: 2, child: Center(child: Text("Price", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)))),
+              ],
+            ),
+            const Divider(color: Colors.amber),
+            // Liste
             Expanded(
               child: data.isEmpty
                   ? const Center(child: Text("No data", style: TextStyle(color: Colors.white70)))
@@ -658,11 +755,18 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                       itemCount: data.length,
                       itemBuilder: (context, index) {
                         final item = data[index];
-                        return ListTile(
-                          dense: true,
-                          title: Text(
-                            "${item['symbol']}: ${item['price'] ?? 'N/A'}",
-                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                        final priceValue = item['price'];
+                        String displayPrice = (priceValue != null && priceValue is num)
+                            ? priceValue.toString()
+                            : 'N/A';
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            children: [
+                              Expanded(flex: 2, child: Center(child: Text(item['symbol'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14)))),
+                              Expanded(flex: 5, child: Center(child: Text(item['name'] ?? '', style: const TextStyle(color: Colors.white70, fontSize: 14)))),
+                              Expanded(flex: 2, child: Center(child: Text(displayPrice, style: const TextStyle(color: Colors.amber, fontSize: 14)))),
+                            ],
                           ),
                         );
                       },
