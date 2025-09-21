@@ -215,6 +215,37 @@ async def price_check_loop():
         await asyncio.sleep(CHECK_INTERVAL)
 
 # ----------------------------
+@app.get("/symbols")
+def get_symbols(market: str):
+    market = market.upper()
+    if market == "BIST":
+        return [s.split(".")[0] for s in BIST100_SYMBOLS]  # ASELS.IS → ASELS
+    elif market == "NASDAQ":
+        return asyncio.run(get_top_nasdaq_symbols(50))  # Top 50 sembol
+    elif market == "CRYPTO":
+        return asyncio.run(get_top_crypto_symbols(50))
+    elif market == "METALS":
+        return list(get_metals().keys())
+    return []
+# ----------------------------
+@app.get("/prices")
+async def get_all_prices():
+    bist = await get_bist_prices()
+    nasdaq = await get_nasdaq_prices()
+    crypto = await get_crypto_prices()
+    metals_dict = get_metals()
+
+    metals = [{"market": "METALS", "symbol": k, "price": v} for k, v in metals_dict.items()]
+
+    # Market bilgisini ekliyoruz
+    bist = [{"market": "BIST", **item} for item in bist]
+    nasdaq = [{"market": "NASDAQ", **item} for item in nasdaq]
+    crypto = [{"market": "CRYPTO", **item} for item in crypto]
+
+    all_data = bist + nasdaq + crypto + metals
+    return all_data
+
+# ----------------------------
 # METALLER (GRAM TL)
 # ----------------------------
 @app.get("/metals")
