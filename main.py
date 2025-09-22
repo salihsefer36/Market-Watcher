@@ -346,11 +346,25 @@ async def get_top_nasdaq_symbols(n=50):
             return nasdaq_symbols[:n]
     return []
 
+POPULAR_NASDAQ = [
+    "KDP", "SWKS", "NTES", "WDAY", "FAST", "ALGN", "EXC", "MELI", "DOCU", "ASML",
+    "ROST", "ADP", "ILMN", "KLAC", "CTSH", "MAR", "IDXX", "EA", "VRTX", "REGN",
+    "ADSK", "BKNG", "MU", "LRCX", "SNPS", "ZM", "BIIB", "MDLZ", "GILD", "ISRG",
+    "SBUX", "AMGN", "COST", "TXN", "AVGO", "QCOM", "PEP", "CMCSA", "CSCO", "ADBE",
+    "AMD", "INTC", "NFLX", "NVDA", "META", "GOOGL", "AMZN", "MSFT", "TSLA", "AAPL"
+]
+
 async def get_nasdaq_symbols_with_name(n=50):
     results = []
     symbols = await get_top_nasdaq_symbols(n)
+
+    # Popüler semboller daima eklensin
+    for sym in POPULAR_NASDAQ:
+        if sym not in symbols:
+            symbols.insert(0, sym)
+
     async with httpx.AsyncClient(timeout=10) as client:
-        for sym in symbols:
+        for sym in symbols[:n]:
             name = None
             try:
                 url = f"{FINNHUB_BASE}/stock/profile2"
@@ -381,10 +395,18 @@ async def fetch_nasdaq_price(symbol: str):
     return {"symbol": symbol, "price": None}
 
 async def get_nasdaq_prices(n=50):
-    symbols = await get_top_nasdaq_symbols(n)
-    tasks = [fetch_nasdaq_price(s) for s in symbols]
+    symbols_with_name = await get_nasdaq_symbols_with_name(n)
+    tasks = [fetch_nasdaq_price(item["symbol"]) for item in symbols_with_name]
     results = await asyncio.gather(*tasks)
-    return results
+    # market + name bilgisi ile birleştir
+    final = []
+    for item, price_data in zip(symbols_with_name, results):
+        final.append({
+            "symbol": item["symbol"],
+            "name": item["name"],
+            "price": price_data["price"]
+        })
+    return final
 
 # ----------------------------
 # Crypto Prices
@@ -409,11 +431,14 @@ async def get_crypto_prices(n=50):
                 r = await client.get(url, params={"symbol": symbol})
                 if r.status_code == 200:
                     data = r.json()
-                    return {"symbol": symbol[:-1], "price": round(float(data["price"]), 2)}
-            return {"symbol": symbol[:-1], "price": None}
+                    price = round(float(data["price"]), 2)
+                    if price > 0:
+                        return {"symbol": symbol[:-1], "price": price}
+            return None  # price 0 veya hata varsa None döndür
         tasks.append(fetch())
     results = await asyncio.gather(*tasks)
-    return results
+    # None olanları çıkar
+    return [r for r in results if r is not None]
 
 # ----------------------------
 # Combined Prices Endpoint

@@ -712,69 +712,137 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
   }
 
   Widget marketColumn(String market) {
-    final data = marketData[market] ?? [];
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.all(6),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: Colors.grey[900],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.amber),
-        ),
-        child: Column(
-          children: [
-            // Market başlığı
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Center(
-                child: Text(
-                  market,
-                  style: const TextStyle(
-                      color: Colors.amber,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16),
+  final data = marketData[market] ?? [];
+  final filteredData = data.where((item) {
+    final priceValue = item['price'];
+    return priceValue != null && priceValue is num && priceValue > 0;
+  }).toList();
+
+  return Expanded(
+    child: Container(
+      margin: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.grey[900],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber),
+      ),
+      child: Column(
+        children: [
+          // Market başlığı
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Center(
+              child: Text(
+                market,
+                style: const TextStyle(
+                  color: Colors.amber,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
                 ),
               ),
             ),
-            const Divider(color: Colors.amber),
-            // Sütun başlıkları
-            Row(
-              children: const [
-                Expanded(flex: 2, child: Center(child: Text("Symbol", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)))),
-                Expanded(flex: 5, child: Center(child: Text("Name", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)))),
-                Expanded(flex: 2, child: Center(child: Text("Price", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)))),
-              ],
-            ),
-            const Divider(color: Colors.amber),
-            // Liste
-            Expanded(
-              child: data.isEmpty
-                  ? const Center(child: Text("No data", style: TextStyle(color: Colors.white70)))
-                  : ListView.builder(
-                      itemCount: data.length,
-                      itemBuilder: (context, index) {
-                        final item = data[index];
-                        final priceValue = item['price'];
-                        String displayPrice = (priceValue != null && priceValue is num)
-                            ? priceValue.toString()
-                            : 'N/A';
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            children: [
-                              Expanded(flex: 2, child: Center(child: Text(item['symbol'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14)))),
-                              Expanded(flex: 5, child: Center(child: Text(item['name'] ?? '', style: const TextStyle(color: Colors.white70, fontSize: 14)))),
-                              Expanded(flex: 2, child: Center(child: Text(displayPrice, style: const TextStyle(color: Colors.amber, fontSize: 14)))),
-                            ],
-                          ),
-                        );
-                      },
+          ),
+          const Divider(color: Colors.amber),
+          // Sütun başlıkları
+          Row(
+            children: const [
+              Expanded(
+                flex: 2,
+                child: Center(
+                  child: Text(
+                    "Symbol",
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontWeight: FontWeight.bold,
                     ),
-            ),
-          ],
-        ),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 5,
+                child: Center(
+                  child: Text(
+                    "Name",
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Center(
+                  child: Text(
+                    "Price",
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Divider(color: Colors.amber),
+          // Liste
+          Expanded(
+            child: filteredData.isEmpty
+                ? const Center(
+                    child: Text(
+                      "No data",
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: filteredData.length,
+                    itemBuilder: (context, index) {
+                      final item = filteredData[index];
+                      final priceValue = item['price']!;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Text(
+                                  item['symbol'] ?? '',
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 14),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 5,
+                              child: Center(
+                                child: Text(
+                                  item['name'] ?? '',
+                                  style: const TextStyle(
+                                      color: Colors.white70, fontSize: 14),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Center(
+                                child: Text(
+                                  priceValue.toString(),
+                                  style: const TextStyle(
+                                      color: Colors.amber, fontSize: 14),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
