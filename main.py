@@ -302,103 +302,87 @@ BIST_FALLBACK_NAMES = {
 }
 
 async def get_bist_symbols_with_name():
+    # Sadece fallback dictionary kullanıyoruz, API çağrısı yok
+    return [{"symbol": s.split(".")[0], "name": BIST_FALLBACK_NAMES.get(s.split(".")[0], s.split(".")[0])}
+            for s in BIST100_SYMBOLS]
+
+async def get_bist_prices():
+    try:
+        data = yf.download(BIST100_SYMBOLS, period="1d")['Close']
+    except:
+        data = None
+
     results = []
     for symbol in BIST100_SYMBOLS:
         short_symbol = symbol.split(".")[0]
-        name = None
-        try:
-            info = yf.Ticker(symbol).info
-            name = info.get("shortName") or info.get("longName")
-        except:
-            pass
-        if not name:
-            name = BIST_FALLBACK_NAMES.get(short_symbol, short_symbol)
-        results.append({"symbol": short_symbol, "name": name})
-    return results
-
-async def fetch_bist_price(symbol: str):
-    try:
-        ticker = yf.Ticker(symbol)
-        data = ticker.history(period="1d")
-        if not data.empty:
-            price = data['Close'].iloc[-1]
-            return {"symbol": symbol.split(".")[0], "price": round(price, 2)}
-    except:
-        pass
-    return {"symbol": symbol.split(".")[0], "price": None}
-
-async def get_bist_prices():
-    tasks = [fetch_bist_price(s) for s in BIST100_SYMBOLS]
-    results = await asyncio.gather(*tasks)
+        price = None
+        if data is not None:
+            try:
+                price = round(float(data[symbol].iloc[-1]), 2)
+            except:
+                price = None
+        results.append({"symbol": short_symbol, "price": price})
     return results
 
 # ----------------------------
 # NASDAQ Symbols & Prices
 # ----------------------------
-async def get_top_nasdaq_symbols(n=50):
-    url = f"{FINNHUB_BASE}/stock/symbol"
-    params = {"exchange": "US", "token": FINNHUB_API_KEY}
-    async with httpx.AsyncClient(timeout=15) as client:
-        r = await client.get(url, params=params)
-        if r.status_code == 200:
-            symbols = r.json()
-            nasdaq_symbols = [s["symbol"] for s in symbols if s.get("mic")=="XNAS"]
-            return nasdaq_symbols[:n]
-    return []
 
 POPULAR_NASDAQ = [
-    "KDP", "SWKS", "NTES", "WDAY", "FAST", "ALGN", "EXC", "MELI", "DOCU", "ASML",
-    "ROST", "ADP", "ILMN", "KLAC", "CTSH", "MAR", "IDXX", "EA", "VRTX", "REGN",
-    "ADSK", "BKNG", "MU", "LRCX", "SNPS", "ZM", "BIIB", "MDLZ", "GILD", "ISRG",
-    "SBUX", "AMGN", "COST", "TXN", "AVGO", "QCOM", "PEP", "CMCSA", "CSCO", "ADBE",
-    "AMD", "INTC", "NFLX", "NVDA", "META", "GOOGL", "AMZN", "MSFT", "TSLA", "AAPL"
+    "AAPL", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "NFLX", "INTC", "AMD",
+    "ADBE", "CSCO", "CMCSA", "PEP", "QCOM", "AVGO", "TXN", "COST", "AMGN", "SBUX",
+    "ISRG", "GILD", "MDLZ", "BIIB", "ZM", "SNPS", "LRCX", "MU", "BKNG", "ADSK",
+    "REGN", "VRTX", "EA", "IDXX", "MAR", "CTSH", "KLAC", "ILMN", "ADP", "ROST",
+    "ASML", "DOCU", "MELI", "EXC", "ALGN", "FAST", "WDAY", "NTES", "SWKS", "KDP"
 ]
 
 async def get_nasdaq_symbols_with_name(n=50):
+    symbols = POPULAR_NASDAQ[:n]
     results = []
-    symbols = await get_top_nasdaq_symbols(n)
 
-    # Popüler semboller daima eklensin
-    for sym in POPULAR_NASDAQ:
-        if sym not in symbols:
-            symbols.insert(0, sym)
+    async with httpx.AsyncClient(timeout=5) as client:
+        tasks = []
+        for sym in symbols:
+            url = f"{FINNHUB_BASE}/stock/profile2"
+            params = {"symbol": sym, "token": FINNHUB_API_KEY}
+            tasks.append(client.get(url, params=params))
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
 
-    async with httpx.AsyncClient(timeout=10) as client:
-        for sym in symbols[:n]:
-            name = None
-            try:
-                url = f"{FINNHUB_BASE}/stock/profile2"
-                params = {"symbol": sym, "token": FINNHUB_API_KEY}
-                r = await client.get(url, params=params)
-                if r.status_code == 200:
-                    data = r.json()
-                    name = data.get("name")
-            except:
-                pass
-            if not name:
-                name = sym
-            results.append({"symbol": sym, "name": name})
+    for sym, r in zip(symbols, responses):
+        name = sym
+        try:
+            if not isinstance(r, Exception) and r.status_code == 200:
+                data = r.json()
+                name = data.get("name") or sym
+        except:
+            pass
+        results.append({"symbol": sym, "name": name})
+
     return results
 
-async def fetch_nasdaq_price(symbol: str):
-    try:
+
+async def fetch_nasdaq_prices(symbols: list[str]):
+    async def fetch(symbol: str):
         url = f"{FINNHUB_BASE}/quote"
         params = {"symbol": symbol, "token": FINNHUB_API_KEY}
-        async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(url, params=params)
-            if r.status_code == 200:
-                data = r.json()
-                price = data.get("c")
-                return {"symbol": symbol, "price": round(price, 2) if price else None}
-    except:
-        pass
-    return {"symbol": symbol, "price": None}
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                r = await client.get(url, params=params)
+                if r.status_code == 200:
+                    price = r.json().get("c")
+                    return {"symbol": symbol, "price": round(price, 2) if price else None}
+        except:
+            pass
+        return {"symbol": symbol, "price": None}
+
+    tasks = [fetch(sym) for sym in symbols]
+    return await asyncio.gather(*tasks)
 
 async def get_nasdaq_prices(n=50):
     symbols_with_name = await get_nasdaq_symbols_with_name(n)
-    tasks = [fetch_nasdaq_price(item["symbol"]) for item in symbols_with_name]
-    results = await asyncio.gather(*tasks)
-    # market + name bilgisi ile birleştir
+    symbols = [item["symbol"] for item in symbols_with_name]
+    results = await fetch_nasdaq_prices(symbols)
+    # Market + name bilgisi ile birleştir
     final = []
     for item, price_data in zip(symbols_with_name, results):
         final.append({
@@ -407,7 +391,6 @@ async def get_nasdaq_prices(n=50):
             "price": price_data["price"]
         })
     return final
-
 # ----------------------------
 # Crypto Prices
 # ----------------------------
