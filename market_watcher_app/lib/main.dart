@@ -713,6 +713,8 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
 
   Widget marketColumn(String market) {
   final data = marketData[market] ?? [];
+  
+  // Fiyatı null veya 0 olanları filtrele
   final filteredData = data.where((item) {
     final priceValue = item['price'];
     return priceValue != null && priceValue is num && priceValue > 0;
@@ -736,10 +738,9 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
               child: Text(
                 market,
                 style: const TextStyle(
-                  color: Colors.amber,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                    color: Colors.amber,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16),
               ),
             ),
           ),
@@ -748,41 +749,26 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
           Row(
             children: const [
               Expanded(
-                flex: 2,
-                child: Center(
-                  child: Text(
-                    "Symbol",
-                    style: TextStyle(
-                      color: Colors.amber,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+                  flex: 2,
+                  child: Center(
+                      child: Text("Symbol",
+                          style: TextStyle(
+                              color: Colors.amber,
+                              fontWeight: FontWeight.bold)))),
               Expanded(
-                flex: 5,
-                child: Center(
-                  child: Text(
-                    "Name",
-                    style: TextStyle(
-                      color: Colors.amber,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+                  flex: 5,
+                  child: Center(
+                      child: Text("Name",
+                          style: TextStyle(
+                              color: Colors.amber,
+                              fontWeight: FontWeight.bold)))),
               Expanded(
-                flex: 2,
-                child: Center(
-                  child: Text(
-                    "Price",
-                    style: TextStyle(
-                      color: Colors.amber,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+                  flex: 2,
+                  child: Center(
+                      child: Text("Price",
+                          style: TextStyle(
+                              color: Colors.amber,
+                              fontWeight: FontWeight.bold)))),
             ],
           ),
           const Divider(color: Colors.amber),
@@ -790,50 +776,46 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
           Expanded(
             child: filteredData.isEmpty
                 ? const Center(
-                    child: Text(
-                      "No data",
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  )
+                    child: Text("No data",
+                        style: TextStyle(color: Colors.white70)))
                 : ListView.builder(
                     itemCount: filteredData.length,
                     itemBuilder: (context, index) {
                       final item = filteredData[index];
-                      final priceValue = item['price']!;
+                      final priceValue = item['price'];
+
+                      // Market bazlı simge ekleme
+                      String currencySymbol;
+                      if (market == "BIST" || market == "METALS") {
+                        currencySymbol = "₺";
+                      } else {
+                        currencySymbol = "\$";
+                      }
+
+                      final displayPrice = "$priceValue$currencySymbol";
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Row(
                           children: [
                             Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Text(
-                                  item['symbol'] ?? '',
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 14),
-                                ),
-                              ),
-                            ),
+                                flex: 2,
+                                child: Center(
+                                    child: Text(item['symbol'] ?? '',
+                                        style: const TextStyle(
+                                            color: Colors.white, fontSize: 14)))),
                             Expanded(
-                              flex: 5,
-                              child: Center(
-                                child: Text(
-                                  item['name'] ?? '',
-                                  style: const TextStyle(
-                                      color: Colors.white70, fontSize: 14),
-                                ),
-                              ),
-                            ),
+                                flex: 5,
+                                child: Center(
+                                    child: Text(item['name'] ?? '',
+                                        style: const TextStyle(
+                                            color: Colors.white70, fontSize: 14)))),
                             Expanded(
-                              flex: 2,
-                              child: Center(
-                                child: Text(
-                                  priceValue.toString(),
-                                  style: const TextStyle(
-                                      color: Colors.amber, fontSize: 14),
-                                ),
-                              ),
-                            ),
+                                flex: 2,
+                                child: Center(
+                                    child: Text(displayPrice,
+                                        style: const TextStyle(
+                                            color: Colors.amber, fontSize: 14)))),
                           ],
                         ),
                       );
