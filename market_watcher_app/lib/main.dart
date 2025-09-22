@@ -159,7 +159,7 @@ class _HomePageState extends State<HomePage> {
   // Backend'den market sembollerini çek
   Future<List<String>> _fetchSymbolsForMarket(String market) async {
     try {
-      final uri = Uri.parse("$backendBaseUrl/symbols?market=$market");
+      final uri = Uri.parse("$backendBaseUrl/symbols_with_name?market=$market");
       final res = await http.get(uri);
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
