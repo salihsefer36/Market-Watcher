@@ -163,13 +163,15 @@ class _HomePageState extends State<HomePage> {
       final res = await http.get(uri);
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
-        return data.map((e) => e.toString()).toList();
+        // Sadece symbol değerlerini al
+        return data.map((e) => e['symbol'].toString()).toList();
       }
     } catch (e) {
       print("Error fetching symbols for $market: $e");
     }
     return [];
   }
+
 
   // Backend'den tüm fiyatları çek
   Future<List<Map<String, dynamic>>> _fetchAllPrices() async {
