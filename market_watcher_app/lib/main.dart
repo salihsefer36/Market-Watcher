@@ -710,7 +710,6 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
             ),
     );
   }
-
   Widget marketColumn(String market) {
   final data = marketData[market] ?? [];
   
@@ -794,6 +793,12 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
 
                       final displayPrice = "$priceValue$currencySymbol";
 
+                      // Metals için özel name
+                      String displayName = item['name'] ?? item['symbol'] ?? '';
+                      if (market == "METALS") {
+                        displayName = "Gram $displayName";
+                      }
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 2),
                         child: Row(
@@ -807,7 +812,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                             Expanded(
                                 flex: 5,
                                 child: Center(
-                                    child: Text(item['name'] ?? '',
+                                    child: Text(displayName,
                                         style: const TextStyle(
                                             color: Colors.white70, fontSize: 14)))),
                             Expanded(
@@ -826,5 +831,5 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
       ),
     ),
   );
-}
+ }
 }
