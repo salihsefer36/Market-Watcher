@@ -218,6 +218,130 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  void _openEditAlarmDialog(BuildContext context, Map<String, dynamic> alert) {
+  String? selectedMarket = alert['market'] ?? 'BIST'; // eğer market backend tarafında yoksa fallback
+  String? selectedSymbol = alert['symbol'];
+  double? selectedPercentage = alert['percentage']?.toDouble();
+
+  List<String> markets = ['BIST', 'NASDAQ', 'CRYPTO', 'METALS'];
+  List<String> symbolsForMarket = [];
+
+  Future<List<String>> fetchSymbolsForMarket(String market) async {
+    try {
+      final uri = Uri.parse("$backendBaseUrl/symbols_with_name?market=$market");
+      final res = await http.get(uri);
+      if (res.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(res.body);
+        return data.map((e) => e['symbol'].toString()).toList();
+      }
+    } catch (e) {
+      print("Error fetching symbols for $market: $e");
+    }
+    return [];
+  }
+
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: const Text('Edit Alarm', style: TextStyle(color: Colors.amber)),
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButton<String>(
+                  dropdownColor: Colors.grey[850],
+                  hint: const Text('Select Market', style: TextStyle(color: Colors.white)),
+                  value: selectedMarket,
+                  items: markets
+                      .map((m) => DropdownMenuItem(
+                            value: m,
+                            child: Text(m, style: const TextStyle(color: Colors.white)),
+                          ))
+                      .toList(),
+                  onChanged: (value) async {
+                    setState(() {
+                      selectedMarket = value;
+                      selectedSymbol = null;
+                      symbolsForMarket = [];
+                    });
+                    if (value != null) {
+                      final symbols = await fetchSymbolsForMarket(value);
+                      setState(() {
+                        symbolsForMarket = symbols;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                if (selectedMarket != null)
+                  DropdownButton<String>(
+                    dropdownColor: Colors.grey[850],
+                    hint: const Text('Select Symbol', style: TextStyle(color: Colors.white)),
+                    value: selectedSymbol,
+                    items: symbolsForMarket
+                        .map((s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(s, style: const TextStyle(color: Colors.white)),
+                            ))
+                        .toList(),
+                    onChanged: (value) => setState(() => selectedSymbol = value),
+                  ),
+                const SizedBox(height: 12),
+                DropdownButton<double>(
+                  dropdownColor: Colors.grey[850],
+                  hint: const Text('Select Change %', style: TextStyle(color: Colors.white)),
+                  value: selectedPercentage,
+                  items: [1, 2, 5, 10]
+                      .map((p) => DropdownMenuItem(
+                            value: p.toDouble(),
+                            child: Text('$p%', style: const TextStyle(color: Colors.white)),
+                          ))
+                      .toList(),
+                  onChanged: (value) => setState(() => selectedPercentage = value),
+                ),
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (selectedMarket != null &&
+                  selectedSymbol != null &&
+                  selectedPercentage != null) {
+                // PUT isteği
+                final uri = Uri.parse("$backendBaseUrl/alerts/${alert['id']}");
+                final body = jsonEncode({
+                  "symbol": selectedSymbol,
+                  "percentage": selectedPercentage,
+                  "user_token": _auth.currentUser?.uid ?? "test-user"
+                });
+                final res = await http.put(uri,
+                    headers: {"Content-Type": "application/json"}, body: body);
+
+                if (res.statusCode == 200) {
+                  await _fetchUserAlarms(); // UI güncelle
+                  Navigator.pop(context);
+                } else {
+                  print("Error editing alert: ${res.body}");
+                }
+              }
+            },
+            child: const Text('Save', style: TextStyle(color: Colors.amber)),
+          ),
+        ],
+      );
+    },
+  );
+}
+
   // Alarm kurma dialog
   void _openSetAlarmDialog(BuildContext context) {
     String? selectedMarket;
@@ -453,87 +577,95 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const Divider(color: Colors.amber),
                       Expanded(
-                        child: _loading
-                            ? const Center(
-                                child: CircularProgressIndicator(
-                                    color: Colors.amber))
-                            : _followedItems.isEmpty
-                                ? const Center(
-                                    child: Text(
-                                      "No alarms yet",
-                                      style: TextStyle(color: Colors.white70),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    itemCount: _followedItems.length,
-                                    itemBuilder: (context, index) {
-                                      final item = _followedItems[index];
-                                      final displayText =
-                                          "${index + 1}. ${item['symbol']} - %${item['percentage']}";
+  child: _loading
+      ? const Center(
+          child: CircularProgressIndicator(color: Colors.amber))
+      : _followedItems.isEmpty
+          ? const Center(
+              child: Text(
+                "No alarms yet",
+                style: TextStyle(color: Colors.white70),
+              ),
+            )
+          : ListView.builder(
+              itemCount: _followedItems.length,
+              itemBuilder: (context, index) {
+                final item = _followedItems[index];
+                final displayText =
+                    "${index + 1}. ${item['symbol']} - %${item['percentage']}";
 
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 4),
-                                        child: Slidable(
-                                          key: ValueKey(displayText),
-                                          endActionPane: ActionPane(
-                                            motion: const DrawerMotion(),
-                                            extentRatio: 0.15,
-                                            children: [
-                                              CustomSlidableAction(
-                                                onPressed: (context) async {
-                                                  await _deleteAlarm(item['id']);
-                                                },
-                                                backgroundColor: Colors.red,
-                                                foregroundColor: Colors.white,
-                                                padding: EdgeInsets.zero,
-                                                borderRadius:
-                                                    BorderRadius.circular(2),
-                                                child: const Icon(Icons.delete,
-                                                    size: 32,
-                                                    color: Colors.white),
-                                              ),
-                                            ],
-                                          ),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[850],
-                                              borderRadius:
-                                                  BorderRadius.circular(2),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: Colors.black
-                                                      .withOpacity(0.6),
-                                                  blurRadius: 6,
-                                                  offset: const Offset(2, 2),
-                                                ),
-                                              ],
-                                            ),
-                                            child: ListTile(
-                                              dense: true,
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 16,
-                                                      vertical: 4),
-                                              leading: const Icon(
-                                                  Icons.notifications_active,
-                                                  color: Colors.amber,
-                                                  size: 28),
-                                              title: Text(
-                                                displayText,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w500,
-                                                  fontSize: 14,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                      ),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Slidable(
+  key: ValueKey(displayText),
+  startActionPane: ActionPane(
+    motion: const DrawerMotion(),
+    extentRatio: 0.15, // edit butonu için
+    children: [
+      CustomSlidableAction(
+        onPressed: (context) {
+          _openEditAlarmDialog(context, item);
+        },
+        backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
+        padding: EdgeInsets.zero,
+        borderRadius: BorderRadius.circular(2),
+        child: const Icon(Icons.edit, size: 32, color: Colors.white),
+      ),
+    ],
+  ),
+  endActionPane: ActionPane(
+    motion: const DrawerMotion(),
+    extentRatio: 0.15, // delete butonu için
+    children: [
+      CustomSlidableAction(
+        onPressed: (context) async {
+          await _deleteAlarm(item['id']);
+        },
+        backgroundColor: Colors.red,
+        foregroundColor: Colors.white,
+        padding: EdgeInsets.zero,
+        borderRadius: BorderRadius.circular(2),
+        child: const Icon(Icons.delete, size: 32, color: Colors.white),
+      ),
+    ],
+  ),
+  child: Container(
+    decoration: BoxDecoration(
+      color: Colors.grey[850],
+      borderRadius: BorderRadius.circular(2),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.6),
+          blurRadius: 6,
+          offset: const Offset(2, 2),
+        ),
+      ],
+    ),
+    child: ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: const Icon(Icons.notifications_active, color: Colors.amber, size: 28),
+      title: Text(
+        displayText,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+          fontSize: 14,
+        ),
+      ),
+      onTap: () {
+        _openEditAlarmDialog(context, item);
+      },
+    ),
+  ),
+)
+
+                );
+              },
+            ),
+),
+
                     ],
                   ),
                 ),

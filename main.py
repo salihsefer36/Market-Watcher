@@ -3,7 +3,7 @@ import asyncio
 from datetime import datetime
 from typing import Optional, List, Dict
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Path
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from sqlmodel import SQLModel, Field, create_engine, Session, select
@@ -119,6 +119,38 @@ def delete_alert(alert_id: int):
         session.delete(alert)
         session.commit()
     return {"ok": True}
+
+@app.put("/alerts/{alert_id}", response_model=Alert)
+async def edit_alert(
+    alert_id: int = Path(..., description="ID of the alert to edit"),
+    alert_in: AlertCreate = ...
+):
+    import traceback
+    try:
+        with Session(engine) as session:
+            alert = session.get(Alert, alert_id)
+            if not alert:
+                raise HTTPException(status_code=404, detail="Alert not found")
+
+            # Güncelle
+            alert.symbol = alert_in.symbol.upper()
+            alert.percentage = float(alert_in.percentage)
+            alert.user_token = alert_in.user_token
+
+            # Mevcut fiyat üzerinden üst ve alt limitleri yeniden hesapla
+            current_price = await fetch_price(alert.symbol)
+            if current_price is not None:
+                alert.base_price = current_price
+                alert.upper_limit = current_price * (1 + alert.percentage / 100)
+                alert.lower_limit = current_price * (1 - alert.percentage / 100)
+
+            session.add(alert)
+            session.commit()
+            session.refresh(alert)
+            return alert
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ----------------------------
 # Push Notification
