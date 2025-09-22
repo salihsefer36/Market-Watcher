@@ -3,7 +3,7 @@ import asyncio
 from datetime import datetime
 from typing import Optional, List, Dict
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from sqlmodel import SQLModel, Field, create_engine, Session, select
@@ -51,21 +51,18 @@ cache: Dict[str, dict] = {}
 class Alert(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
-    symbol: str = "CUSTOM"
-    threshold: float = 0
-    direction: str = "above"
-    message: Optional[str] = None
-    active: bool = True
-    last_notified_at: Optional[datetime] = None
+    symbol: str
+    percentage: float
+    base_price: float
+    upper_limit: float
+    lower_limit: float
     created_at: datetime = Field(default_factory=datetime.utcnow)
     user_token: Optional[str] = None
 
 class AlertCreate(SQLModel):
     symbol: str
-    threshold: float
-    direction: Optional[str] = "above"
+    percentage: float
     user_token: Optional[str] = None
-    message: Optional[str] = None
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
@@ -74,27 +71,43 @@ def create_db_and_tables():
 # Alerts CRUD
 # ----------------------------
 @app.post("/alerts", response_model=Alert)
-def create_alert(alert_in: AlertCreate):
-    direction = alert_in.direction.lower() if alert_in.direction else "above"
-    if direction not in ["above", "below"]:
-        raise HTTPException(status_code=400, detail="Direction must be 'above' or 'below'")
-    alert = Alert(
-        symbol=alert_in.symbol.upper() if alert_in.symbol else "CUSTOM",
-        threshold=alert_in.threshold,
-        direction=direction,
-        message=alert_in.message,
-        user_token=alert_in.user_token
-    )
-    with Session(engine) as session:
-        session.add(alert)
-        session.commit()
-        session.refresh(alert)
-    return alert
+async def create_alert(alert_in: AlertCreate):
+    import traceback
+    try:
+        current_price = await fetch_price(alert_in.symbol)
+        if current_price is None:
+            raise HTTPException(status_code=400, detail="Price not found for symbol")
+
+        perc = float(alert_in.percentage)
+        upper = current_price * (1 + perc / 100)
+        lower = current_price * (1 - perc / 100)
+
+        alert = Alert(
+            symbol=alert_in.symbol.upper(),
+            percentage=perc,
+            base_price=current_price,
+            upper_limit=upper,
+            lower_limit=lower,
+            user_token=alert_in.user_token
+        )
+
+        with Session(engine) as session:
+            session.add(alert)
+            session.commit()
+            session.refresh(alert)
+
+        return alert
+    except Exception as e:
+        traceback.print_exc()  # Terminalde hatanın detayını gör
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/alerts", response_model=List[Alert])
-def list_alerts():
+def list_alerts(user_token: Optional[str] = Query(None)):
     with Session(engine) as session:
-        alerts = session.exec(select(Alert)).all()
+        query = select(Alert)
+        if user_token:
+            query = query.where(Alert.user_token == user_token)
+        alerts = session.exec(query).all()
     return alerts
 
 @app.delete("/alerts/{alert_id}")
@@ -122,19 +135,67 @@ def send_push_notification(token: str, title: str, body: str):
         print("FCM send error:", e)
 
 # ----------------------------
-# Finnhub Price Fetch
+# Price Fetch
 # ----------------------------
-async def fetch_price(symbol: str):
-    url = f"{FINNHUB_BASE}/quote"
-    params = {"symbol": symbol, "token": FINNHUB_API_KEY}
-    async with httpx.AsyncClient(timeout=10) as client:
-        r = await client.get(url, params=params)
-        if r.status_code == 200:
-            data = r.json()
-            if "c" in data:
-                return float(data["c"])
-    return None
 
+async def fetch_price(symbol: str):
+    symbol = symbol.upper()
+
+    # ----------------------------
+    # Metals (async uyumlu)
+    # ----------------------------
+    metals_yf = {"ALTIN": "GC=F", "GÜMÜŞ": "SI=F", "BAKIR": "HG=F"}
+    if symbol in metals_yf:
+        try:
+            loop = asyncio.get_event_loop()
+            usdtry = await loop.run_in_executor(None, lambda: yf.Ticker("TRY=X").history(period="1d")['Close'].iloc[-1])
+            price_usd = await loop.run_in_executor(None, lambda: yf.Ticker(metals_yf[symbol]).history(period="1d")['Close'].iloc[-1])
+            return round((price_usd * usdtry) / 31.1035, 2)
+        except:
+            return None
+
+    # ----------------------------
+    # BIST (async uyumlu)
+    # ----------------------------
+    if symbol.endswith(".IS") or symbol in BIST_FALLBACK_NAMES:
+        try:
+            yf_symbol = symbol if symbol.endswith(".IS") else f"{symbol}.IS"
+            loop = asyncio.get_event_loop()
+            price = await loop.run_in_executor(None, lambda: yf.Ticker(yf_symbol).history(period="1d")['Close'].iloc[-1])
+            return round(float(price), 2)
+        except:
+            return None
+
+    # ----------------------------
+    # NASDAQ & Crypto (tek AsyncClient)
+    # ----------------------------
+    async with httpx.AsyncClient(timeout=10) as client:
+        # NASDAQ
+        if symbol in POPULAR_NASDAQ:
+            try:
+                r = await client.get(f"{FINNHUB_BASE}/quote", params={"symbol": symbol, "token": FINNHUB_API_KEY})
+                if r.status_code == 200:
+                    price = r.json().get("c")
+                    if price:
+                        return round(float(price), 2)
+            except:
+                return None
+
+        # Crypto
+        if symbol.endswith("USDT"):
+            try:
+                r = await client.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": symbol})
+                if r.status_code == 200:
+                    price = float(r.json().get("price", 0))
+                    if price > 0:
+                        return round(price, 2)
+            except:
+                return None
+
+    # ----------------------------
+    # Desteklenmeyen sembol
+    # ----------------------------
+    return None
 # ----------------------------
 # Price Check Loop
 # ----------------------------
@@ -142,22 +203,25 @@ async def price_check_loop():
     while True:
         try:
             with Session(engine) as session:
-                alerts = session.exec(select(Alert).where(Alert.active == True)).all()
+                alerts = session.exec(select(Alert)).all()
             for alert in alerts:
                 price = await fetch_price(alert.symbol)
                 if price is not None:
-                    trigger = (alert.direction=="above" and price>=alert.threshold) or \
-                              (alert.direction=="below" and price<=alert.threshold)
-                    if trigger and alert.user_token:
-                        send_push_notification(
-                            token=alert.user_token,
-                            title=f"{alert.symbol} Alarm",
-                            body=f"Fiyat {price} {alert.direction} {alert.threshold}"
-                        )
-                        alert.last_notified_at = datetime.utcnow()
+                    if price >= alert.upper_limit or price <= alert.lower_limit:
+                        # Bildirim gönder
+                        if alert.user_token:
+                            direction = "arttı" if price >= alert.upper_limit else "azaldı"
+                            send_push_notification(
+                                token=alert.user_token,
+                                title=f"{alert.symbol} Alarm",
+                                body=f"{alert.symbol} %{alert.percentage} {direction} ve {price:.2f} TL oldu"
+                            )
+                        # Alarmı DB'den sil
                         with Session(engine) as session:
-                            session.add(alert)
-                            session.commit()
+                            db_alert = session.get(Alert, alert.id)
+                            if db_alert:
+                                session.delete(db_alert)
+                                session.commit()
         except Exception as e:
             print("Error in price_check_loop:", e)
         await asyncio.sleep(CHECK_INTERVAL)

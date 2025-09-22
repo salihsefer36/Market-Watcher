@@ -153,54 +153,93 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final List<Map<String, dynamic>> _followedItems = [];
-  final String backendBaseUrl = "http://localhost:8000"; // backend URL
+  final String backendBaseUrl = "http://192.168.0.104:8000";
+  List<Map<String, dynamic>> _followedItems = [];
+  bool _loading = false;
 
-  // Backend'den market sembollerini çek
-  Future<List<String>> _fetchSymbolsForMarket(String market) async {
+  // Backend: kullanıcının alarmlarını çek
+  Future<void> _fetchUserAlarms() async {
+    setState(() => _loading = true);
     try {
-      final uri = Uri.parse("$backendBaseUrl/symbols_with_name?market=$market");
+      final userToken = _auth.currentUser?.uid ?? "test-user"; // fallback test user
+      final uri = Uri.parse("$backendBaseUrl/alerts?user_token=$userToken");
       final res = await http.get(uri);
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
-        // Sadece symbol değerlerini al
-        return data.map((e) => e['symbol'].toString()).toList();
+        setState(() {
+          _followedItems =
+              data.map((e) => Map<String, dynamic>.from(e)).toList();
+        });
       }
     } catch (e) {
-      print("Error fetching symbols for $market: $e");
+      print("Error fetching alerts: $e");
     }
-    return [];
+    setState(() => _loading = false);
   }
 
-
-  // Backend'den tüm fiyatları çek
-  Future<List<Map<String, dynamic>>> _fetchAllPrices() async {
+  // Backend: alarm ekle
+  Future<void> _createAlarm(
+      String market, String symbol, double percentage) async {
     try {
-      final uri = Uri.parse("$backendBaseUrl/prices");
-      final res = await http.get(uri);
+      final userToken = _auth.currentUser?.uid ?? "test-user";
+      final uri = Uri.parse("$backendBaseUrl/alerts");
+      final body = jsonEncode({
+        "symbol": symbol,
+        "percentage": percentage,
+        "direction": "above",
+        "user_token": userToken,
+        "message": "$market - $symbol alarm %$percentage"
+      });
+      final res = await http.post(uri,
+          headers: {"Content-Type": "application/json"}, body: body);
+
       if (res.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(res.body);
-        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+        await _fetchUserAlarms(); // UI güncelle
+      } else {
+        print("Error creating alarm: ${res.body}");
       }
     } catch (e) {
-      print("Error fetching prices: $e");
+      print("Create alarm error: $e");
     }
-    return [];
   }
 
-  // Set Alarm dialog'u
-  void _openSetAlarmDialog(BuildContext context,
-      {Map<String, dynamic>? editItem, int? index}) async {
-    String? selectedMarket = editItem?['market'];
-    String? selectedSymbol = editItem?['symbol'];
-    double? selectedPercentage = editItem?['percentage'];
+  // Backend: alarm sil
+  Future<void> _deleteAlarm(int id) async {
+    try {
+      final uri = Uri.parse("$backendBaseUrl/alerts/$id");
+      final res = await http.delete(uri);
+      if (res.statusCode == 200) {
+        await _fetchUserAlarms(); // UI güncelle
+      } else {
+        print("Error deleting alarm: ${res.body}");
+      }
+    } catch (e) {
+      print("Delete alarm error: $e");
+    }
+  }
+
+  // Alarm kurma dialog
+  void _openSetAlarmDialog(BuildContext context) {
+    String? selectedMarket;
+    String? selectedSymbol;
+    double? selectedPercentage;
 
     final markets = ['BIST', 'NASDAQ', 'CRYPTO', 'METALS'];
     final percentages = [1, 2, 5, 10];
-
     List<String> symbolsForMarket = [];
-    if (selectedMarket != null) {
-      symbolsForMarket = await _fetchSymbolsForMarket(selectedMarket);
+
+    Future<List<String>> _fetchSymbolsForMarket(String market) async {
+      try {
+        final uri = Uri.parse("$backendBaseUrl/symbols_with_name?market=$market");
+        final res = await http.get(uri);
+        if (res.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(res.body);
+          return data.map((e) => e['symbol'].toString()).toList();
+        }
+      } catch (e) {
+        print("Error fetching symbols for $market: $e");
+      }
+      return [];
     }
 
     showDialog(
@@ -208,10 +247,8 @@ class _HomePageState extends State<HomePage> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: Colors.grey[900],
-          title: Text(
-            editItem == null ? 'Set Alarm' : 'Edit Alarm',
-            style: const TextStyle(color: Colors.amber),
-          ),
+          title: const Text('Set Alarm',
+              style: TextStyle(color: Colors.amber)),
           content: StatefulBuilder(
             builder: (context, setState) {
               return Column(
@@ -254,8 +291,7 @@ class _HomePageState extends State<HomePage> {
                           .map((s) => DropdownMenuItem(
                                 value: s,
                                 child: Text(s,
-                                    style: const TextStyle(
-                                        color: Colors.white)),
+                                    style: const TextStyle(color: Colors.white)),
                               ))
                           .toList(),
                       onChanged: (value) =>
@@ -284,46 +320,21 @@ class _HomePageState extends State<HomePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel',
-                  style: TextStyle(color: Colors.white)),
+              child:
+                  const Text('Cancel', style: TextStyle(color: Colors.white)),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 if (selectedMarket != null &&
                     selectedSymbol != null &&
                     selectedPercentage != null) {
-                  final exists = _followedItems.any((item) =>
-                      item['market'] == selectedMarket &&
-                      item['symbol'] == selectedSymbol &&
-                      (index == null || _followedItems.indexOf(item) != index));
-
-                  if (exists) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text("This alarm already exists!"),
-                      backgroundColor: Colors.red,
-                    ));
-                    return;
-                  }
-
-                  final newItem = {
-                    "market": selectedMarket,
-                    "symbol": selectedSymbol,
-                    "percentage": selectedPercentage,
-                  };
-
-                  setState(() {
-                    if (index != null) {
-                      _followedItems[index] = newItem;
-                    } else {
-                      _followedItems.add(newItem);
-                    }
-                  });
-
+                  await _createAlarm(
+                      selectedMarket!, selectedSymbol!, selectedPercentage!);
                   Navigator.pop(context);
                 }
               },
-              child: Text(editItem == null ? 'Set' : 'Update',
-                  style: const TextStyle(color: Colors.amber)),
+              child: const Text('Set',
+                  style: TextStyle(color: Colors.amber)),
             ),
           ],
         );
@@ -332,9 +343,14 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _fetchUserAlarms();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
-    // UI kodu değişmedi
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -367,7 +383,7 @@ class _HomePageState extends State<HomePage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Sol taraf: Butonlar
+            // Sol taraf
             Expanded(
               flex: 2,
               child: Column(
@@ -384,7 +400,8 @@ class _HomePageState extends State<HomePage> {
                     ),
                     child: const Text(
                       'Set Alarm',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -402,14 +419,15 @@ class _HomePageState extends State<HomePage> {
                     ),
                     child: const Text(
                       'Watch Market',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 24),
-            // Sağ taraf: Followed Panel
+            // Sağ taraf: Followed
             Expanded(
               flex: 1,
               child: Container(
@@ -435,98 +453,86 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const Divider(color: Colors.amber),
                       Expanded(
-                        child: _followedItems.isEmpty
+                        child: _loading
                             ? const Center(
-                                child: Text(
-                                  "No alarms yet",
-                                  style: TextStyle(color: Colors.white70),
-                                ),
-                              )
-                            : ListView.builder(
-                                itemCount: _followedItems.length,
-                                itemBuilder: (context, index) {
-                                  final item = _followedItems[index];
-                                  final displayText =
-                                      "${index + 1}. ${item['market']} - ${item['symbol']} - ${item['percentage']}%";
+                                child: CircularProgressIndicator(
+                                    color: Colors.amber))
+                            : _followedItems.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      "No alarms yet",
+                                      style: TextStyle(color: Colors.white70),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    itemCount: _followedItems.length,
+                                    itemBuilder: (context, index) {
+                                      final item = _followedItems[index];
+                                      final displayText =
+                                          "${index + 1}. ${item['symbol']} - %${item['percentage']}";
 
-                                  item.putIfAbsent('isDeleting', () => false);
-
-                                  return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
-                                    child: Slidable(
-                                      key: ValueKey(displayText),
-                                      endActionPane: ActionPane(
-                                        motion: const DrawerMotion(),
-                                        extentRatio: 0.15,
-                                        children: [
-                                          CustomSlidableAction(
-                                            onPressed: (context) {
-                                              setState(() {
-                                                _followedItems[index]['isDeleting'] = true;
-                                              });
-                                              Future.delayed(const Duration(milliseconds: 500), () {
-                                                final removedItem = _followedItems[index];
-                                                setState(() {
-                                                  _followedItems.removeAt(index);
-                                                });
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                        '${removedItem['market']} ${removedItem['symbol']} deleted'),
-                                                    duration: const Duration(milliseconds: 800),
-                                                  ),
-                                                );
-                                              });
-                                            },
-                                            backgroundColor: Colors.red,
-                                            foregroundColor: Colors.white,
-                                            padding: EdgeInsets.zero,
-                                            borderRadius: BorderRadius.circular(2),
-                                            child: Icon(Icons.delete, size: 32, color: Colors.white),
-                                          ),
-                                        ],
-                                      ),
-                                      child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 500),
-                                        curve: Curves.easeInOut,
-                                        transform: item['isDeleting']
-                                            ? Matrix4.translationValues(-500, 0, 0)
-                                            : Matrix4.identity(),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey[850],
-                                            borderRadius: BorderRadius.circular(2),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.6),
-                                                blurRadius: 6,
-                                                offset: const Offset(2, 2),
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 4),
+                                        child: Slidable(
+                                          key: ValueKey(displayText),
+                                          endActionPane: ActionPane(
+                                            motion: const DrawerMotion(),
+                                            extentRatio: 0.15,
+                                            children: [
+                                              CustomSlidableAction(
+                                                onPressed: (context) async {
+                                                  await _deleteAlarm(item['id']);
+                                                },
+                                                backgroundColor: Colors.red,
+                                                foregroundColor: Colors.white,
+                                                padding: EdgeInsets.zero,
+                                                borderRadius:
+                                                    BorderRadius.circular(2),
+                                                child: const Icon(Icons.delete,
+                                                    size: 32,
+                                                    color: Colors.white),
                                               ),
                                             ],
                                           ),
-                                          child: ListTile(
-                                            dense: true,
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                            leading: const Icon(Icons.notifications_active, color: Colors.amber, size: 28),
-                                            title: Text(
-                                              displayText,
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w500,
-                                                fontSize: 14,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[850],
+                                              borderRadius:
+                                                  BorderRadius.circular(2),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black
+                                                      .withOpacity(0.6),
+                                                  blurRadius: 6,
+                                                  offset: const Offset(2, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            child: ListTile(
+                                              dense: true,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 4),
+                                              leading: const Icon(
+                                                  Icons.notifications_active,
+                                                  color: Colors.amber,
+                                                  size: 28),
+                                              title: Text(
+                                                displayText,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w500,
+                                                  fontSize: 14,
+                                                ),
                                               ),
                                             ),
-                                            trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 16),
-                                            onTap: () {
-                                              _openSetAlarmDialog(context, editItem: item, index: index);
-                                            },
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
+                                      );
+                                    },
+                                  ),
                       ),
                     ],
                   ),
@@ -548,7 +554,7 @@ class WatchMarketPage extends StatefulWidget {
 }
 
 class _WatchMarketPageState extends State<WatchMarketPage> {
-  final String backendBaseUrl = "http://127.0.0.1:8000"; // Backend URL
+  final String backendBaseUrl = "http://192.168.0.104:8000"; // Backend URL
   Map<String, List<Map<String, dynamic>>> marketData = {
     "BIST": [],
     "NASDAQ": [],
