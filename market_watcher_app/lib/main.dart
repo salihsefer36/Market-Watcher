@@ -197,32 +197,42 @@ class _HomePageState extends State<HomePage> {
       // Crypto için backend zaten USDT ile geliyor dialogdan, ekleme yok
 
       final exists = _followedItems.any((alarm) {
-  if (editId != null && alarm['id'] == editId) return false;
+        if (editId != null && alarm['id'] == editId) return false;
 
-  String alarmSymbol = alarm['symbol'];
-  String checkSymbol = symbol;
+        String alarmSymbol = alarm['symbol'];
+        String checkSymbol = symbol;
 
-  if (alarm['market'] == 'CRYPTO') {
-    // Backend'deki sembolden T/USDT kaldır
-    if (alarmSymbol.endsWith("T")) alarmSymbol = alarmSymbol.substring(0, alarmSymbol.length - 1);
-    if (alarmSymbol.endsWith("USDT")) alarmSymbol = alarmSymbol.substring(0, alarmSymbol.length - 4);
+        if (alarm['market'] == 'CRYPTO') {
+          // Backend'deki sembolden T/USDT kaldır
+          if (alarmSymbol.endsWith("T")) alarmSymbol = alarmSymbol.substring(0, alarmSymbol.length - 1);
+          if (alarmSymbol.endsWith("USDT")) alarmSymbol = alarmSymbol.substring(0, alarmSymbol.length - 4);
 
-    // Dialogdan gelen sembolden T kaldır
-    if (checkSymbol.endsWith("T")) checkSymbol = checkSymbol.substring(0, checkSymbol.length - 1);
-    if (checkSymbol.endsWith("USDT")) checkSymbol = checkSymbol.substring(0, checkSymbol.length - 4);
-  }
+          // Dialogdan gelen sembolden T kaldır
+          if (checkSymbol.endsWith("T")) checkSymbol = checkSymbol.substring(0, checkSymbol.length - 1);
+          if (checkSymbol.endsWith("USDT")) checkSymbol = checkSymbol.substring(0, checkSymbol.length - 4);
+        }
 
-  if (alarm['market'] == 'METALS') {
-    alarmSymbol = alarmSymbol.toUpperCase();
-    checkSymbol = checkSymbol.toUpperCase();
-  }
+        if (alarm['market'] == 'METALS') {
+          alarmSymbol = alarmSymbol.toUpperCase();
+          checkSymbol = checkSymbol.toUpperCase();
+        }
 
-  return alarm['market'] == market && alarmSymbol == checkSymbol;
-});
+        return alarm['market'] == market && alarmSymbol == checkSymbol;
+      });
 
       if (exists) {
+        String displaySymbol = symbol;
+
+        // Crypto için USDT → USD
+        if (market == 'CRYPTO' && displaySymbol.endsWith('USDT')) {
+          displaySymbol = displaySymbol.substring(0, displaySymbol.length - 1); // son T'yi at
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Alarm already exists for $symbol in $market')),
+          SnackBar(
+            content: Text('Alarm already exists for $displaySymbol in $market'),
+            backgroundColor: Colors.red, 
+          ),
         );
         return;
       }
