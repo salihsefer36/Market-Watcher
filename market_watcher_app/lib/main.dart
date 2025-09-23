@@ -185,36 +185,70 @@ class _HomePageState extends State<HomePage> {
     setState(() => _loading = false);
   }
 
-  // Backend: alarm ekle
-  Future<void> _createAlarm(String market, String symbol, double percentage) async {
+  Future<void> _createOrEditAlarm(String market,String symbol,double percentage, {int? editId,}) async {
     try {
       final userToken = _auth.currentUser?.uid ?? "test-user";
 
+      // Backend sembol formatlama
       String backendSymbol = symbol;
-      if (market == 'CRYPTO' && !symbol.endsWith("USDT")) {
-        backendSymbol = "${symbol.toUpperCase()}USDT";
+      if (market == 'METALS') {
+        backendSymbol = symbol.toUpperCase();
+      }
+      // Crypto için backend zaten USDT ile geliyor dialogdan, ekleme yok
+
+      final exists = _followedItems.any((alarm) {
+  if (editId != null && alarm['id'] == editId) return false;
+
+  String alarmSymbol = alarm['symbol'];
+  String checkSymbol = symbol;
+
+  if (alarm['market'] == 'CRYPTO') {
+    // Backend'deki sembolden T/USDT kaldır
+    if (alarmSymbol.endsWith("T")) alarmSymbol = alarmSymbol.substring(0, alarmSymbol.length - 1);
+    if (alarmSymbol.endsWith("USDT")) alarmSymbol = alarmSymbol.substring(0, alarmSymbol.length - 4);
+
+    // Dialogdan gelen sembolden T kaldır
+    if (checkSymbol.endsWith("T")) checkSymbol = checkSymbol.substring(0, checkSymbol.length - 1);
+    if (checkSymbol.endsWith("USDT")) checkSymbol = checkSymbol.substring(0, checkSymbol.length - 4);
+  }
+
+  if (alarm['market'] == 'METALS') {
+    alarmSymbol = alarmSymbol.toUpperCase();
+    checkSymbol = checkSymbol.toUpperCase();
+  }
+
+  return alarm['market'] == market && alarmSymbol == checkSymbol;
+});
+
+      if (exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Alarm already exists for $symbol in $market')),
+        );
+        return;
       }
 
-      final uri = Uri.parse("$backendBaseUrl/alerts");
+      final uri = editId != null
+          ? Uri.parse("$backendBaseUrl/alerts/$editId") // edit
+          : Uri.parse("$backendBaseUrl/alerts");       // create
+
       final body = jsonEncode({
         "market": market,
-        "symbol": symbol,
+        "symbol": backendSymbol,
         "percentage": percentage,
         "user_token": userToken
       });
-      final res = await http.post(uri,
-          headers: {"Content-Type": "application/json"}, body: body);
+
+      final res = editId != null
+          ? await http.put(uri, headers: {"Content-Type": "application/json"}, body: body)
+          : await http.post(uri, headers: {"Content-Type": "application/json"}, body: body);
 
       if (res.statusCode == 200) {
-        if (market == 'CRYPTO' && backendSymbol.endsWith("USDT")) {
-            symbol = backendSymbol.substring(0, backendSymbol.length - 1);
-        }
         await _fetchUserAlarms(); // UI güncelle
       } else {
-        print("Error creating alarm: ${res.body}");
+        print("Error creating/editing alarm: ${res.body}");
       }
     } catch (e) {
-      print("Create alarm error: $e");
+      print("Create/Edit alarm error: $e");
     }
   }
 
@@ -338,7 +372,7 @@ class _HomePageState extends State<HomePage> {
                   if (selectedMarket == 'CRYPTO') {
                     formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
                   }
-                  await _createAlarm(selectedMarket!, formattedSymbol, selectedPercentage!);
+                  await _createOrEditAlarm(selectedMarket!, formattedSymbol, selectedPercentage!);
                   Navigator.pop(context);
                 }
               },
@@ -458,22 +492,16 @@ class _HomePageState extends State<HomePage> {
                 if (selectedMarket != null &&
                     selectedSymbol != null &&
                     selectedPercentage != null) {
-                  final uri = Uri.parse("$backendBaseUrl/alerts/${alert['id']}");
-                  final body = jsonEncode({
-                    "market": selectedMarket,
-                    "symbol": selectedSymbol,
-                    "percentage": selectedPercentage,
-                    "user_token": _auth.currentUser?.uid ?? "test-user"
-                  });
-                  final res = await http.put(uri,
-                      headers: {"Content-Type": "application/json"}, body: body);
 
-                  if (res.statusCode == 200) {
-                    await _fetchUserAlarms(); // UI güncelle
-                    Navigator.pop(context);
-                  } else {
-                    print("Error editing alert: ${res.body}");
-                  }
+                  // editId ile birlikte tek fonksiyon üzerinden edit işlemi
+                  await _createOrEditAlarm(
+                    selectedMarket!,
+                    selectedSymbol!,
+                    selectedPercentage!,
+                    editId: alert['id'], // bu alarmı edit ettiğimizi belirtiyoruz
+                  );
+
+                  Navigator.pop(context); // dialogu kapat
                 }
               },
               child: const Text('Save', style: TextStyle(color: Colors.amber)),
