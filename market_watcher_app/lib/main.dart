@@ -178,17 +178,15 @@ class _HomePageState extends State<HomePage> {
   }
 
   // Backend: alarm ekle
-  Future<void> _createAlarm(
-      String market, String symbol, double percentage) async {
+  Future<void> _createAlarm(String market, String symbol, double percentage) async {
     try {
       final userToken = _auth.currentUser?.uid ?? "test-user";
       final uri = Uri.parse("$backendBaseUrl/alerts");
       final body = jsonEncode({
+        "market": market,
         "symbol": symbol,
         "percentage": percentage,
-        "direction": "above",
-        "user_token": userToken,
-        "message": "$market - $symbol alarm %$percentage"
+        "user_token": userToken
       });
       final res = await http.post(uri,
           headers: {"Content-Type": "application/json"}, body: body);
@@ -218,131 +216,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _openEditAlarmDialog(BuildContext context, Map<String, dynamic> alert) {
-  String? selectedMarket = alert['market'] ?? 'BIST'; // eğer market backend tarafında yoksa fallback
-  String? selectedSymbol = alert['symbol'];
-  double? selectedPercentage = alert['percentage']?.toDouble();
-
-  List<String> markets = ['BIST', 'NASDAQ', 'CRYPTO', 'METALS'];
-  List<String> symbolsForMarket = [];
-
-  Future<List<String>> fetchSymbolsForMarket(String market) async {
-    try {
-      final uri = Uri.parse("$backendBaseUrl/symbols_with_name?market=$market");
-      final res = await http.get(uri);
-      if (res.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(res.body);
-        return data.map((e) => e['symbol'].toString()).toList();
-      }
-    } catch (e) {
-      print("Error fetching symbols for $market: $e");
-    }
-    return [];
-  }
-
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text('Edit Alarm', style: TextStyle(color: Colors.amber)),
-        content: StatefulBuilder(
-          builder: (context, setState) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButton<String>(
-                  dropdownColor: Colors.grey[850],
-                  hint: const Text('Select Market', style: TextStyle(color: Colors.white)),
-                  value: selectedMarket,
-                  items: markets
-                      .map((m) => DropdownMenuItem(
-                            value: m,
-                            child: Text(m, style: const TextStyle(color: Colors.white)),
-                          ))
-                      .toList(),
-                  onChanged: (value) async {
-                    setState(() {
-                      selectedMarket = value;
-                      selectedSymbol = null;
-                      symbolsForMarket = [];
-                    });
-                    if (value != null) {
-                      final symbols = await fetchSymbolsForMarket(value);
-                      setState(() {
-                        symbolsForMarket = symbols;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                if (selectedMarket != null)
-                  DropdownButton<String>(
-                    dropdownColor: Colors.grey[850],
-                    hint: const Text('Select Symbol', style: TextStyle(color: Colors.white)),
-                    value: selectedSymbol,
-                    items: symbolsForMarket
-                        .map((s) => DropdownMenuItem(
-                              value: s,
-                              child: Text(s, style: const TextStyle(color: Colors.white)),
-                            ))
-                        .toList(),
-                    onChanged: (value) => setState(() => selectedSymbol = value),
-                  ),
-                const SizedBox(height: 12),
-                DropdownButton<double>(
-                  dropdownColor: Colors.grey[850],
-                  hint: const Text('Select Change %', style: TextStyle(color: Colors.white)),
-                  value: selectedPercentage,
-                  items: [1, 2, 5, 10]
-                      .map((p) => DropdownMenuItem(
-                            value: p.toDouble(),
-                            child: Text('$p%', style: const TextStyle(color: Colors.white)),
-                          ))
-                      .toList(),
-                  onChanged: (value) => setState(() => selectedPercentage = value),
-                ),
-              ],
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (selectedMarket != null &&
-                  selectedSymbol != null &&
-                  selectedPercentage != null) {
-                // PUT isteği
-                final uri = Uri.parse("$backendBaseUrl/alerts/${alert['id']}");
-                final body = jsonEncode({
-                  "symbol": selectedSymbol,
-                  "percentage": selectedPercentage,
-                  "user_token": _auth.currentUser?.uid ?? "test-user"
-                });
-                final res = await http.put(uri,
-                    headers: {"Content-Type": "application/json"}, body: body);
-
-                if (res.statusCode == 200) {
-                  await _fetchUserAlarms(); // UI güncelle
-                  Navigator.pop(context);
-                } else {
-                  print("Error editing alert: ${res.body}");
-                }
-              }
-            },
-            child: const Text('Save', style: TextStyle(color: Colors.amber)),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-  // Alarm kurma dialog
+  // Alarm oluşturma dialog
   void _openSetAlarmDialog(BuildContext context) {
     String? selectedMarket;
     String? selectedSymbol;
@@ -371,8 +245,7 @@ class _HomePageState extends State<HomePage> {
       builder: (context) {
         return AlertDialog(
           backgroundColor: Colors.grey[900],
-          title: const Text('Set Alarm',
-              style: TextStyle(color: Colors.amber)),
+          title: const Text('Set Alarm', style: TextStyle(color: Colors.amber)),
           content: StatefulBuilder(
             builder: (context, setState) {
               return Column(
@@ -380,14 +253,12 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   DropdownButton<String>(
                     dropdownColor: Colors.grey[850],
-                    hint: const Text('Select Market',
-                        style: TextStyle(color: Colors.white)),
+                    hint: const Text('Select Market', style: TextStyle(color: Colors.white)),
                     value: selectedMarket,
                     items: markets
                         .map((m) => DropdownMenuItem(
                               value: m,
-                              child: Text(m,
-                                  style: const TextStyle(color: Colors.white)),
+                              child: Text(m, style: const TextStyle(color: Colors.white)),
                             ))
                         .toList(),
                     onChanged: (value) async {
@@ -408,34 +279,28 @@ class _HomePageState extends State<HomePage> {
                   if (selectedMarket != null)
                     DropdownButton<String>(
                       dropdownColor: Colors.grey[850],
-                      hint: const Text('Select Symbol',
-                          style: TextStyle(color: Colors.white)),
+                      hint: const Text('Select Symbol', style: TextStyle(color: Colors.white)),
                       value: selectedSymbol,
                       items: symbolsForMarket
                           .map((s) => DropdownMenuItem(
                                 value: s,
-                                child: Text(s,
-                                    style: const TextStyle(color: Colors.white)),
+                                child: Text(s, style: const TextStyle(color: Colors.white)),
                               ))
                           .toList(),
-                      onChanged: (value) =>
-                          setState(() => selectedSymbol = value),
+                      onChanged: (value) => setState(() => selectedSymbol = value),
                     ),
                   const SizedBox(height: 12),
                   DropdownButton<double>(
                     dropdownColor: Colors.grey[850],
-                    hint: const Text('Select Change %',
-                        style: TextStyle(color: Colors.white)),
+                    hint: const Text('Select Change %', style: TextStyle(color: Colors.white)),
                     value: selectedPercentage,
                     items: percentages
                         .map((p) => DropdownMenuItem(
                               value: p.toDouble(),
-                              child: Text('$p%',
-                                  style: const TextStyle(color: Colors.white)),
+                              child: Text('$p%', style: const TextStyle(color: Colors.white)),
                             ))
                         .toList(),
-                    onChanged: (value) =>
-                        setState(() => selectedPercentage = value),
+                    onChanged: (value) => setState(() => selectedPercentage = value),
                   ),
                 ],
               );
@@ -444,21 +309,152 @@ class _HomePageState extends State<HomePage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child:
-                  const Text('Cancel', style: TextStyle(color: Colors.white)),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white)),
             ),
             TextButton(
               onPressed: () async {
                 if (selectedMarket != null &&
                     selectedSymbol != null &&
                     selectedPercentage != null) {
-                  await _createAlarm(
-                      selectedMarket!, selectedSymbol!, selectedPercentage!);
+                  await _createAlarm(selectedMarket!, selectedSymbol!, selectedPercentage!);
                   Navigator.pop(context);
                 }
               },
-              child: const Text('Set',
-                  style: TextStyle(color: Colors.amber)),
+              child: const Text('Set', style: TextStyle(color: Colors.amber)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Alarm düzenleme dialog
+  void _openEditAlarmDialog(BuildContext context, Map<String, dynamic> alert) {
+    String? selectedMarket = alert['market'] ?? 'BIST';
+    String? selectedSymbol = alert['symbol'];
+    double? selectedPercentage = alert['percentage']?.toDouble();
+
+    final markets = ['BIST', 'NASDAQ', 'CRYPTO', 'METALS'];
+    List<String> symbolsForMarket = [];
+
+    Future<List<String>> _fetchSymbolsForMarket(String market) async {
+      try {
+        final uri = Uri.parse("$backendBaseUrl/symbols_with_name?market=$market");
+        final res = await http.get(uri);
+        if (res.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(res.body);
+          return data.map((e) => e['symbol'].toString()).toList();
+        }
+      } catch (e) {
+        print("Error fetching symbols for $market: $e");
+      }
+      return [];
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: const Text('Edit Alarm', style: TextStyle(color: Colors.amber)),
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              // Mevcut market seçiliyse o marketin sembollerini yükle
+              if (selectedMarket != null && symbolsForMarket.isEmpty) {
+                _fetchSymbolsForMarket(selectedMarket!).then((symbols) {
+                  setState(() {
+                    symbolsForMarket = symbols;
+                  });
+                });
+              }
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButton<String>(
+                    dropdownColor: Colors.grey[850],
+                    hint: const Text('Select Market', style: TextStyle(color: Colors.white)),
+                    value: selectedMarket,
+                    items: markets
+                        .map((m) => DropdownMenuItem(
+                              value: m,
+                              child: Text(m, style: const TextStyle(color: Colors.white)),
+                            ))
+                        .toList(),
+                    onChanged: (value) async {
+                      setState(() {
+                        selectedMarket = value;
+                        selectedSymbol = null;
+                        symbolsForMarket = [];
+                      });
+                      if (value != null) {
+                        final symbols = await _fetchSymbolsForMarket(value);
+                        setState(() {
+                          symbolsForMarket = symbols;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  if (selectedMarket != null)
+                    DropdownButton<String>(
+                      dropdownColor: Colors.grey[850],
+                      hint: const Text('Select Symbol', style: TextStyle(color: Colors.white)),
+                      value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
+                      items: symbolsForMarket
+                          .map((s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(s, style: const TextStyle(color: Colors.white)),
+                              ))
+                          .toList(),
+                      onChanged: (value) => setState(() => selectedSymbol = value),
+                    ),
+                  const SizedBox(height: 12),
+                  DropdownButton<double>(
+                    dropdownColor: Colors.grey[850],
+                    hint: const Text('Select Change %', style: TextStyle(color: Colors.white)),
+                    value: selectedPercentage,
+                    items: [1, 2, 5, 10]
+                        .map((p) => DropdownMenuItem(
+                              value: p.toDouble(),
+                              child: Text('$p%', style: const TextStyle(color: Colors.white)),
+                            ))
+                        .toList(),
+                    onChanged: (value) => setState(() => selectedPercentage = value),
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (selectedMarket != null &&
+                    selectedSymbol != null &&
+                    selectedPercentage != null) {
+                  final uri = Uri.parse("$backendBaseUrl/alerts/${alert['id']}");
+                  final body = jsonEncode({
+                    "market": selectedMarket,
+                    "symbol": selectedSymbol,
+                    "percentage": selectedPercentage,
+                    "user_token": _auth.currentUser?.uid ?? "test-user"
+                  });
+                  final res = await http.put(uri,
+                      headers: {"Content-Type": "application/json"}, body: body);
+
+                  if (res.statusCode == 200) {
+                    await _fetchUserAlarms(); // UI güncelle
+                    Navigator.pop(context);
+                  } else {
+                    print("Error editing alert: ${res.body}");
+                  }
+                }
+              },
+              child: const Text('Save', style: TextStyle(color: Colors.amber)),
             ),
           ],
         );

@@ -51,6 +51,7 @@ cache: Dict[str, dict] = {}
 class Alert(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
+    market: str
     symbol: str
     percentage: float
     base_price: float
@@ -60,15 +61,19 @@ class Alert(SQLModel, table=True):
     user_token: Optional[str] = None
 
 class AlertCreate(SQLModel):
+    market: str
     symbol: str
     percentage: float
     user_token: Optional[str] = None
 
+# ----------------------------
+# DB ve tablo oluşturma
+# ----------------------------
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
 # ----------------------------
-# Alerts CRUD
+# CRUD
 # ----------------------------
 @app.post("/alerts", response_model=Alert)
 async def create_alert(alert_in: AlertCreate):
@@ -83,6 +88,7 @@ async def create_alert(alert_in: AlertCreate):
         lower = current_price * (1 - perc / 100)
 
         alert = Alert(
+            market=alert_in.market,
             symbol=alert_in.symbol.upper(),
             percentage=perc,
             base_price=current_price,
@@ -98,7 +104,7 @@ async def create_alert(alert_in: AlertCreate):
 
         return alert
     except Exception as e:
-        traceback.print_exc()  # Terminalde hatanın detayını gör
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/alerts", response_model=List[Alert])
@@ -132,12 +138,11 @@ async def edit_alert(
             if not alert:
                 raise HTTPException(status_code=404, detail="Alert not found")
 
-            # Güncelle
+            alert.market = alert_in.market
             alert.symbol = alert_in.symbol.upper()
             alert.percentage = float(alert_in.percentage)
             alert.user_token = alert_in.user_token
 
-            # Mevcut fiyat üzerinden üst ve alt limitleri yeniden hesapla
             current_price = await fetch_price(alert.symbol)
             if current_price is not None:
                 alert.base_price = current_price
