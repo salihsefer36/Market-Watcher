@@ -156,6 +156,7 @@ class _HomePageState extends State<HomePage> {
   final String backendBaseUrl = "http://192.168.0.104:8000";
   List<Map<String, dynamic>> _followedItems = [];
   bool _loading = false;
+  Map<int, bool> _isDeleted = {};
 
   // Backend: kullanıcının alarmlarını çek
   Future<void> _fetchUserAlarms() async {
@@ -651,77 +652,91 @@ class _HomePageState extends State<HomePage> {
                     "${index + 1}. ${item['symbol']} - %${item['percentage']}";
 
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Slidable(
-  key: ValueKey(displayText),
-  startActionPane: ActionPane(
-    motion: const DrawerMotion(),
-    extentRatio: 0.15, // edit butonu için
-    children: [
-      CustomSlidableAction(
-        onPressed: (context) {
-          _openEditAlarmDialog(context, item);
-        },
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-        padding: EdgeInsets.zero,
-        borderRadius: BorderRadius.circular(2),
-        child: const Icon(Icons.edit, size: 32, color: Colors.white),
-      ),
-    ],
-  ),
-  endActionPane: ActionPane(
-    motion: const DrawerMotion(),
-    extentRatio: 0.15, // delete butonu için
-    children: [
-      CustomSlidableAction(
-        onPressed: (context) async {
-          await _deleteAlarm(item['id']);
-        },
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.white,
-        padding: EdgeInsets.zero,
-        borderRadius: BorderRadius.circular(2),
-        child: const Icon(Icons.delete, size: 32, color: Colors.white),
-      ),
-    ],
-  ),
-  child: Container(
-    decoration: BoxDecoration(
-      color: Colors.grey[850],
-      borderRadius: BorderRadius.circular(2),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.6),
-          blurRadius: 6,
-          offset: const Offset(2, 2),
-        ),
-      ],
-    ),
-    child: ListTile(
-      dense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: const Icon(Icons.notifications_active, color: Colors.amber, size: 28),
-      title: Text(
-        displayText,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
-        ),
-      ),
-      onTap: () {
-        _openEditAlarmDialog(context, item);
-      },
-    ),
-  ),
-)
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: AnimatedSlide(
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeInOut,
+                      offset: _isDeleted[item['id']] == true ? const Offset(-1.5, 0) : Offset.zero,
+                      child: Slidable(
+                        key: ValueKey(item['id']), // item id key olarak kullan
+                        startActionPane: ActionPane(
+                          motion: const DrawerMotion(),
+                          extentRatio: 0.15,
+                          children: [
+                            CustomSlidableAction(
+                              onPressed: (context) {
+                                _openEditAlarmDialog(context, item);
+                              },
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.zero,
+                              borderRadius: BorderRadius.circular(2),
+                              child: const Icon(Icons.edit, size: 32, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                        endActionPane: ActionPane(
+                          motion: const DrawerMotion(),
+                          extentRatio: 0.15,
+                          children: [
+                            CustomSlidableAction(
+                              onPressed: (context) async {
+                                // Sola kaydırma animasyonunu başlat
+                                setState(() {
+                                  _isDeleted[item['id']] = true;
+                                });
 
-                );
-              },
-            ),
-),
-
+                                // 0.5 saniye bekleyip sonra backend ve listeden sil
+                                await Future.delayed(const Duration(milliseconds: 500));
+                                await _deleteAlarm(item['id']);
+                                setState(() {
+                                  _followedItems.removeWhere((e) => e['id'] == item['id']);
+                                  _isDeleted.remove(item['id']);
+                                });
+                              },
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.zero,
+                              borderRadius: BorderRadius.circular(2),
+                              child: const Icon(Icons.delete, size: 32, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[850],
+                            borderRadius: BorderRadius.circular(2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.6),
+                                blurRadius: 6,
+                                offset: const Offset(2, 2),
+                              ),
+                            ],
+                          ),
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            leading: const Icon(Icons.notifications_active, color: Colors.amber, size: 28),
+                            title: Text(
+                              displayText,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                            onTap: () {
+                              _openEditAlarmDialog(context, item);
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
