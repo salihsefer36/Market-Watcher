@@ -167,8 +167,16 @@ class _HomePageState extends State<HomePage> {
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
         setState(() {
-          _followedItems =
-              data.map((e) => Map<String, dynamic>.from(e)).toList();
+          _followedItems = data.map((e) {
+            final Map<String, dynamic> item = Map<String, dynamic>.from(e);
+
+            // Eğer CRYPTO market ise ve sembol 'T' ile bitiyorsa sondaki 'T'yi at
+            if (item['market'] == 'CRYPTO' && item['symbol'].endsWith('T')) {
+              item['symbol'] = item['symbol'].substring(0, item['symbol'].length - 1);
+            }
+
+            return item;
+          }).toList();
         });
       }
     } catch (e) {
@@ -181,6 +189,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _createAlarm(String market, String symbol, double percentage) async {
     try {
       final userToken = _auth.currentUser?.uid ?? "test-user";
+
+      String backendSymbol = symbol;
+      if (market == 'CRYPTO' && !symbol.endsWith("USDT")) {
+        backendSymbol = "${symbol.toUpperCase()}USDT";
+      }
+
       final uri = Uri.parse("$backendBaseUrl/alerts");
       final body = jsonEncode({
         "market": market,
@@ -192,6 +206,9 @@ class _HomePageState extends State<HomePage> {
           headers: {"Content-Type": "application/json"}, body: body);
 
       if (res.statusCode == 200) {
+        if (market == 'CRYPTO' && backendSymbol.endsWith("USDT")) {
+            symbol = backendSymbol.substring(0, backendSymbol.length - 1);
+        }
         await _fetchUserAlarms(); // UI güncelle
       } else {
         print("Error creating alarm: ${res.body}");
@@ -316,7 +333,12 @@ class _HomePageState extends State<HomePage> {
                 if (selectedMarket != null &&
                     selectedSymbol != null &&
                     selectedPercentage != null) {
-                  await _createAlarm(selectedMarket!, selectedSymbol!, selectedPercentage!);
+                  
+                  String formattedSymbol = selectedSymbol!;
+                  if (selectedMarket == 'CRYPTO') {
+                    formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
+                  }
+                  await _createAlarm(selectedMarket!, formattedSymbol, selectedPercentage!);
                   Navigator.pop(context);
                 }
               },

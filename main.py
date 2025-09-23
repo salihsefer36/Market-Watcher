@@ -226,13 +226,13 @@ async def fetch_price(symbol: str):
                     price = float(r.json().get("price", 0))
                     if price > 0:
                         return round(price, 2)
-            except:
+            except Exception as e:
+                print(f"Crypto fetch error for {symbol}: {e}")
                 return None
-
-    # ----------------------------
-    # Desteklenmeyen sembol
-    # ----------------------------
-    return None
+        # ----------------------------
+        # Desteklenmeyen sembol
+        # ----------------------------
+        return None
 # ----------------------------
 # Price Check Loop
 # ----------------------------
