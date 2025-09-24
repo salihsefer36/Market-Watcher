@@ -190,12 +190,10 @@ class _HomePageState extends State<HomePage> {
     try {
       final userToken = _auth.currentUser?.uid ?? "test-user";
 
-      // Backend sembol formatlama
       String backendSymbol = symbol;
       if (market == 'METALS') {
         backendSymbol = symbol.toUpperCase();
       }
-      // Crypto için backend zaten USDT ile geliyor dialogdan, ekleme yok
 
       final exists = _followedItems.any((alarm) {
         if (editId != null && alarm['id'] == editId) return false;
@@ -204,11 +202,9 @@ class _HomePageState extends State<HomePage> {
         String checkSymbol = symbol;
 
         if (alarm['market'] == 'CRYPTO') {
-          // Backend'deki sembolden T/USDT kaldır
           if (alarmSymbol.endsWith("T")) alarmSymbol = alarmSymbol.substring(0, alarmSymbol.length - 1);
           if (alarmSymbol.endsWith("USDT")) alarmSymbol = alarmSymbol.substring(0, alarmSymbol.length - 4);
 
-          // Dialogdan gelen sembolden T kaldır
           if (checkSymbol.endsWith("T")) checkSymbol = checkSymbol.substring(0, checkSymbol.length - 1);
           if (checkSymbol.endsWith("USDT")) checkSymbol = checkSymbol.substring(0, checkSymbol.length - 4);
         }
@@ -224,15 +220,47 @@ class _HomePageState extends State<HomePage> {
       if (exists) {
         String displaySymbol = symbol;
 
-        // Crypto için USDT → USD
         if (market == 'CRYPTO' && displaySymbol.endsWith('USDT')) {
-          displaySymbol = displaySymbol.substring(0, displaySymbol.length - 1); // son T'yi at
+          displaySymbol = displaySymbol.substring(0, displaySymbol.length - 1); 
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Alarm already exists for $displaySymbol in $market'),
-            backgroundColor: Colors.red, 
+            behavior: SnackBarBehavior.floating, 
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            backgroundColor: Colors.transparent, 
+            elevation: 0,
+            content: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.redAccent.shade200, Colors.red.shade900],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.6),
+                    blurRadius: 8,
+                    offset: const Offset(2, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Alarm already exists for $displaySymbol in $market',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         );
         return;
@@ -734,43 +762,85 @@ class _HomePageState extends State<HomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Sol taraf
-            Expanded(
+           Expanded(
               flex: 2,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ElevatedButton(
-                    onPressed: () => _openSetAlarmDialog(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber[700],
-                      foregroundColor: Colors.black,
-                      minimumSize: const Size(150, 60),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: MediaQuery.of(context).size.width * 0.15, // ekranın %15'i
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.amber, Colors.orangeAccent],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 6,
+                          offset: const Offset(2, 3),
+                        ),
+                      ],
                     ),
-                    child: const Text(
-                      'Set Alarm',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => _openSetAlarmDialog(context),
+                        child: const Center(
+                          child: Text(
+                            'Set Alarm',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => WatchMarketPage()),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: MediaQuery.of(context).size.width * 0.15,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.amber, Colors.orangeAccent],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 6,
+                          offset: const Offset(2, 3),
+                        ),
+                      ],
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber[700],
-                      foregroundColor: Colors.black,
-                      minimumSize: const Size(150, 60),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text(
-                      'Watch Market',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => WatchMarketPage()),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Watch Market',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
