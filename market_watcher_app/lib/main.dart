@@ -278,7 +278,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Alarm oluşturma dialog
   void _openSetAlarmDialog(BuildContext context) {
     String? selectedMarket;
     String? selectedSymbol;
@@ -305,97 +304,179 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[900],
-          title: const Text('Set Alarm', style: TextStyle(color: Colors.amber)),
-          content: StatefulBuilder(
-            builder: (context, setState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButton<String>(
-                    dropdownColor: Colors.grey[850],
-                    hint: const Text('Select Market', style: TextStyle(color: Colors.white)),
-                    value: selectedMarket,
-                    items: markets
-                        .map((m) => DropdownMenuItem(
-                              value: m,
-                              child: Text(m, style: const TextStyle(color: Colors.white)),
-                            ))
-                        .toList(),
-                    onChanged: (value) async {
-                      setState(() {
-                        selectedMarket = value;
-                        selectedSymbol = null;
-                        symbolsForMarket = [];
-                      });
-                      if (value != null) {
-                        final symbols = await _fetchSymbolsForMarket(value);
-                        setState(() {
-                          symbolsForMarket = symbols;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  if (selectedMarket != null)
-                    DropdownButton<String>(
-                      dropdownColor: Colors.grey[850],
-                      hint: const Text('Select Symbol', style: TextStyle(color: Colors.white)),
-                      value: selectedSymbol,
-                      items: symbolsForMarket
-                          .map((s) => DropdownMenuItem(
-                                value: s,
-                                child: Text(s, style: const TextStyle(color: Colors.white)),
-                              ))
-                          .toList(),
-                      onChanged: (value) => setState(() => selectedSymbol = value),
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.2, // ekran genişliğinin %20'si
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.grey.shade900, Colors.grey.shade800],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.amberAccent.shade700, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.7),
+                  blurRadius: 10,
+                  offset: const Offset(3, 4),
+                ),
+              ],
+            ),
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Set Alarm',
+                      style: TextStyle(
+                        color: Colors.amber.shade400,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black87,
+                            offset: const Offset(1.5, 1.5),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
                     ),
-                  const SizedBox(height: 12),
-                  DropdownButton<double>(
-                    dropdownColor: Colors.grey[850],
-                    hint: const Text('Select Change %', style: TextStyle(color: Colors.white)),
-                    value: selectedPercentage,
-                    items: percentages
-                        .map((p) => DropdownMenuItem(
-                              value: p.toDouble(),
-                              child: Text('$p%', style: const TextStyle(color: Colors.white)),
-                            ))
-                        .toList(),
-                    onChanged: (value) => setState(() => selectedPercentage = value),
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white)),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (selectedMarket != null &&
-                    selectedSymbol != null &&
-                    selectedPercentage != null) {
-                  
-                  String formattedSymbol = selectedSymbol!;
-                  if (selectedMarket == 'CRYPTO') {
-                    formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
-                  }
-                  await _createOrEditAlarm(selectedMarket!, formattedSymbol, selectedPercentage!);
-                  Navigator.pop(context);
-                }
+                    const SizedBox(height: 16),
+                    // Market Dropdown
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade900,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amberAccent, width: 1),
+                      ),
+                      child: DropdownButton<String>(
+                        dropdownColor: Colors.grey.shade800,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        value: selectedMarket,
+                        hint: const Text('Select Market', style: TextStyle(color: Colors.white)),
+                        items: markets
+                            .map((m) => DropdownMenuItem(
+                                  value: m,
+                                  child: Text(m, style: const TextStyle(color: Colors.white)),
+                                ))
+                            .toList(),
+                        onChanged: (value) async {
+                          setState(() {
+                            selectedMarket = value;
+                            selectedSymbol = null;
+                            symbolsForMarket = [];
+                          });
+                          if (value != null) {
+                            final symbols = await _fetchSymbolsForMarket(value);
+                            setState(() {
+                              symbolsForMarket = symbols;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Symbol Dropdown
+                    if (selectedMarket != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade900,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.amberAccent, width: 1),
+                        ),
+                        child: DropdownButton<String>(
+                          dropdownColor: Colors.grey.shade800,
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          hint: const Text('Select Symbol', style: TextStyle(color: Colors.white)),
+                          value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
+                          items: symbolsForMarket
+                              .map((s) => DropdownMenuItem(
+                                    value: s,
+                                    child: Text(s, style: const TextStyle(color: Colors.white)),
+                                  ))
+                              .toList(),
+                          onChanged: (value) => setState(() => selectedSymbol = value),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    // Percentage Dropdown
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade900,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amberAccent, width: 1),
+                      ),
+                      child: DropdownButton<double>(
+                        dropdownColor: Colors.grey.shade800,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        hint: const Text('Select Change %', style: TextStyle(color: Colors.white)),
+                        value: selectedPercentage,
+                        items: percentages
+                            .map((p) => DropdownMenuItem(
+                                  value: p.toDouble(),
+                                  child: Text('$p%', style: const TextStyle(color: Colors.white)),
+                                ))
+                            .toList(),
+                        onChanged: (value) => setState(() => selectedPercentage = value),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white70,
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 12),
+                        TextButton(
+                          onPressed: () async {
+                            if (selectedMarket != null &&
+                                selectedSymbol != null &&
+                                selectedPercentage != null) {
+                              String formattedSymbol = selectedSymbol!;
+                              if (selectedMarket == 'CRYPTO') {
+                                formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
+                              }
+                              await _createOrEditAlarm(
+                                selectedMarket!,
+                                formattedSymbol,
+                                selectedPercentage!,
+                              );
+                              Navigator.pop(context);
+                            }
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.amberAccent,
+                            shadowColor: Colors.amberAccent.withOpacity(0.6),
+                          ),
+                          child: const Text('Set'),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
               },
-              child: const Text('Set', style: TextStyle(color: Colors.amber)),
             ),
-          ],
+          ),
         );
       },
     );
   }
 
-  // Alarm düzenleme dialog
   void _openEditAlarmDialog(BuildContext context, Map<String, dynamic> alert) {
     String? selectedMarket = alert['market'] ?? 'BIST';
     String? selectedSymbol = alert['symbol'];
@@ -421,103 +502,179 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[900],
-          title: const Text('Edit Alarm', style: TextStyle(color: Colors.amber)),
-          content: StatefulBuilder(
-            builder: (context, setState) {
-              // Mevcut market seçiliyse o marketin sembollerini yükle
-              if (selectedMarket != null && symbolsForMarket.isEmpty) {
-                _fetchSymbolsForMarket(selectedMarket!).then((symbols) {
-                  setState(() {
-                    symbolsForMarket = symbols;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.2, // ekran genişliğinin %40'ı
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.grey.shade900, Colors.grey.shade800],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.amberAccent.shade700, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.7),
+                  blurRadius: 10,
+                  offset: const Offset(3, 4),
+                ),
+              ],
+            ),
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                if (selectedMarket != null && symbolsForMarket.isEmpty) {
+                  _fetchSymbolsForMarket(selectedMarket!).then((symbols) {
+                    setState(() {
+                      symbolsForMarket = symbols;
+                    });
                   });
-                });
-              }
-
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButton<String>(
-                    dropdownColor: Colors.grey[850],
-                    hint: const Text('Select Market', style: TextStyle(color: Colors.white)),
-                    value: selectedMarket,
-                    items: markets
-                        .map((m) => DropdownMenuItem(
-                              value: m,
-                              child: Text(m, style: const TextStyle(color: Colors.white)),
-                            ))
-                        .toList(),
-                    onChanged: (value) async {
-                      setState(() {
-                        selectedMarket = value;
-                        selectedSymbol = null;
-                        symbolsForMarket = [];
-                      });
-                      if (value != null) {
-                        final symbols = await _fetchSymbolsForMarket(value);
-                        setState(() {
-                          symbolsForMarket = symbols;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  if (selectedMarket != null)
-                    DropdownButton<String>(
-                      dropdownColor: Colors.grey[850],
-                      hint: const Text('Select Symbol', style: TextStyle(color: Colors.white)),
-                      value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
-                      items: symbolsForMarket
-                          .map((s) => DropdownMenuItem(
-                                value: s,
-                                child: Text(s, style: const TextStyle(color: Colors.white)),
-                              ))
-                          .toList(),
-                      onChanged: (value) => setState(() => selectedSymbol = value),
-                    ),
-                  const SizedBox(height: 12),
-                  DropdownButton<double>(
-                    dropdownColor: Colors.grey[850],
-                    hint: const Text('Select Change %', style: TextStyle(color: Colors.white)),
-                    value: selectedPercentage,
-                    items: [1, 2, 5, 10]
-                        .map((p) => DropdownMenuItem(
-                              value: p.toDouble(),
-                              child: Text('$p%', style: const TextStyle(color: Colors.white)),
-                            ))
-                        .toList(),
-                    onChanged: (value) => setState(() => selectedPercentage = value),
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white)),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (selectedMarket != null &&
-                    selectedSymbol != null &&
-                    selectedPercentage != null) {
-
-                  // editId ile birlikte tek fonksiyon üzerinden edit işlemi
-                  await _createOrEditAlarm(
-                    selectedMarket!,
-                    selectedSymbol!,
-                    selectedPercentage!,
-                    editId: alert['id'], // bu alarmı edit ettiğimizi belirtiyoruz
-                  );
-
-                  Navigator.pop(context); // dialogu kapat
                 }
+
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Edit Alarm',
+                      style: TextStyle(
+                        color: Colors.amber.shade400,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black87,
+                            offset: const Offset(1.5, 1.5),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Market Dropdown
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade900,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amberAccent, width: 1),
+                      ),
+                      child: DropdownButton<String>(
+                        dropdownColor: Colors.grey.shade800,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        value: selectedMarket,
+                        hint: const Text('Select Market', style: TextStyle(color: Colors.white)),
+                        items: markets
+                            .map((m) => DropdownMenuItem(
+                                  value: m,
+                                  child: Text(m, style: const TextStyle(color: Colors.white)),
+                                ))
+                            .toList(),
+                        onChanged: (value) async {
+                          setState(() {
+                            selectedMarket = value;
+                            selectedSymbol = null;
+                            symbolsForMarket = [];
+                          });
+                          if (value != null) {
+                            final symbols = await _fetchSymbolsForMarket(value);
+                            setState(() {
+                              symbolsForMarket = symbols;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Symbol Dropdown
+                    if (selectedMarket != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade900,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.amberAccent, width: 1),
+                        ),
+                        child: DropdownButton<String>(
+                          dropdownColor: Colors.grey.shade800,
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          hint: const Text('Select Symbol', style: TextStyle(color: Colors.white)),
+                          value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
+                          items: symbolsForMarket
+                              .map((s) => DropdownMenuItem(
+                                    value: s,
+                                    child: Text(s, style: const TextStyle(color: Colors.white)),
+                                  ))
+                              .toList(),
+                          onChanged: (value) => setState(() => selectedSymbol = value),
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    // Percentage Dropdown
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade900,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amberAccent, width: 1),
+                      ),
+                      child: DropdownButton<double>(
+                        dropdownColor: Colors.grey.shade800,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        hint: const Text('Select Change %', style: TextStyle(color: Colors.white)),
+                        value: selectedPercentage,
+                        items: [1, 2, 5, 10]
+                            .map((p) => DropdownMenuItem(
+                                  value: p.toDouble(),
+                                  child: Text('$p%', style: const TextStyle(color: Colors.white)),
+                                ))
+                            .toList(),
+                        onChanged: (value) => setState(() => selectedPercentage = value),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white70,
+                          ),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 12),
+                        TextButton(
+                          onPressed: () async {
+                            if (selectedMarket != null &&
+                                selectedSymbol != null &&
+                                selectedPercentage != null) {
+                              await _createOrEditAlarm(
+                                selectedMarket!,
+                                selectedSymbol!,
+                                selectedPercentage!,
+                                editId: alert['id'],
+                              );
+                              Navigator.pop(context);
+                            }
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.amberAccent,
+                            shadowColor: Colors.amberAccent.withOpacity(0.6),
+                          ),
+                          child: const Text('Save'),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
               },
-              child: const Text('Save', style: TextStyle(color: Colors.amber)),
             ),
-          ],
+          ),
         );
       },
     );
