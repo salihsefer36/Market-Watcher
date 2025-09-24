@@ -1112,44 +1112,59 @@ class _HomePageState extends State<HomePage> {
                                                   ),
                                                 ],
                                               ),
-                                              child: ListTile(
-                                                dense: true,
-                                                contentPadding: const EdgeInsets.symmetric(
-                                                    horizontal: 16, vertical: 6),
-                                                leading: Container(
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.amber.shade600.withOpacity(0.3),
-                                                    shape: BoxShape.circle,
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: Colors.amber.withOpacity(0.5),
-                                                        blurRadius: 6,
-                                                        spreadRadius: 1,
+                                              child: InkWell(
+                                                onTap: () => _openEditAlarmDialog(context, item),
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                                  child: Row(
+                                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                                    children: [
+                                                      // Leading Icon
+                                                      Container(
+                                                        width: 40, // Genişlik sınırı
+                                                        height: 40, // Yükseklik sınırı
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.amber.shade600.withOpacity(0.3),
+                                                          shape: BoxShape.circle,
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: Colors.amber.withOpacity(0.5),
+                                                              blurRadius: 6,
+                                                              spreadRadius: 1,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        padding: const EdgeInsets.all(6),
+                                                        child: const Icon(
+                                                          Icons.notifications_active,
+                                                          color: Colors.amber,
+                                                          size: 28,
+                                                        ),
+                                                      ),
+
+                                                      const SizedBox(width: 12), // Leading ile title arası boşluk
+
+                                                      // Title Text
+                                                      Expanded(
+                                                        child: Text(
+                                                          displayText,
+                                                          style: const TextStyle(
+                                                            color: Colors.white,
+                                                            fontWeight: FontWeight.w600,
+                                                            fontSize: 14,
+                                                            shadows: [
+                                                              Shadow(
+                                                                offset: Offset(0.8, 0.8),
+                                                                blurRadius: 2,
+                                                                color: Colors.black54,
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
                                                       ),
                                                     ],
                                                   ),
-                                                  padding: const EdgeInsets.all(6),
-                                                  child: const Icon(Icons.notifications_active,
-                                                      color: Colors.amber, size: 28),
                                                 ),
-                                                title: Text(
-                                                  displayText,
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 14,
-                                                    shadows: [
-                                                      Shadow(
-                                                        offset: Offset(0.8, 0.8),
-                                                        blurRadius: 2,
-                                                        color: Colors.black54,
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                onTap: () {
-                                                  _openEditAlarmDialog(context, item);
-                                                },
                                               ),
                                             ),
                                           ),
