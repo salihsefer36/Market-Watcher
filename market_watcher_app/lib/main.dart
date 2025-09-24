@@ -8,6 +8,7 @@ import 'firebase_options.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -16,9 +17,26 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Firebase initialization
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Background message handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  runApp(const MyApp());
+
+  // Run the app inside ScreenUtilInit
+  runApp(
+    ScreenUtilInit(
+      designSize: const Size(390, 844), 
+      minTextAdapt: true, 
+      splitScreenMode: true, 
+      builder: (context, child) {
+        return const MyApp();
+      },
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -41,7 +59,7 @@ class MyApp extends StatelessWidget {
           color: Colors.grey.shade900,
           elevation: 8,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(20.r),
           ),
           shadowColor: Colors.black.withOpacity(0.6),
         ),
@@ -50,16 +68,16 @@ class MyApp extends StatelessWidget {
           fillColor: Colors.grey.shade800,
           contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.r),
             borderSide: BorderSide(color: Colors.amber.shade700),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(12.r),
             borderSide: BorderSide(color: Colors.amber.shade500),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.amber.shade400, width: 2),
+            borderRadius: BorderRadius.circular(12.r),
+            borderSide: BorderSide(color: Colors.amber.shade400, width: 2.w),
           ),
           hintStyle: const TextStyle(color: Colors.grey),
         ),
@@ -69,10 +87,10 @@ class MyApp extends StatelessWidget {
             foregroundColor: Colors.black,
             padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12.r),
             ),
-            textStyle: const TextStyle(
-              fontSize: 16,
+            textStyle: TextStyle(
+              fontSize: 16.sp,
               fontWeight: FontWeight.bold,
             ),
             shadowColor: Colors.black.withOpacity(0.6),
@@ -141,7 +159,7 @@ class LoginPage extends StatelessWidget {
           duration: const Duration(milliseconds: 400),
           padding: const EdgeInsets.all(24),
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.5,
+            maxWidth: MediaQuery.of(context).size.width.w * 0.5,
           ),
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -149,8 +167,8 @@ class LoginPage extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.amberAccent.shade700, width: 1.5),
+            borderRadius: BorderRadius.circular(24.r),
+            border: Border.all(color: Colors.amberAccent.shade700, width: 1.5.w),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.7),
@@ -165,7 +183,7 @@ class LoginPage extends StatelessWidget {
               Text(
                 'Market Watcher',
                 style: TextStyle(
-                  fontSize: 32,
+                  fontSize: 32.sp,
                   fontWeight: FontWeight.bold,
                   color: Colors.amber.shade400,
                   shadows: [
@@ -177,7 +195,7 @@ class LoginPage extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: 32.h),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 decoration: BoxDecoration(
@@ -186,7 +204,7 @@ class LoginPage extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12.r),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.5),
@@ -198,7 +216,7 @@ class LoginPage extends StatelessWidget {
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(12.r),
                     onTap: () async {
                       final userCredential = await signInWithGoogle();
                       if (userCredential != null) {
@@ -222,7 +240,7 @@ class LoginPage extends StatelessWidget {
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(16.r),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.6),
@@ -232,9 +250,9 @@ class LoginPage extends StatelessWidget {
                                 ],
                               ),
                               child: Row(
-                                children: const [
+                                children: [
                                   Icon(Icons.error_outline, color: Colors.white),
-                                  SizedBox(width: 12),
+                                  SizedBox(width: 12.w),
                                   Expanded(
                                     child: Text(
                                       'Giriş başarısız',
@@ -256,12 +274,12 @@ class LoginPage extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Image.asset('assets/images/google_logo.png', height: 24, width: 24),
-                          const SizedBox(width: 12),
-                          const Text(
+                          Image.asset('assets/images/google_logo.png', height: 24.h, width: 24.w),
+                          SizedBox(width: 12.w),
+                          Text(
                             'Google ile Giriş Yap',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 18.sp,
                               fontWeight: FontWeight.bold,
                               color: Colors.black,
                             ),
@@ -372,7 +390,7 @@ class _HomePageState extends State<HomePage> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(12.r),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.6),
@@ -385,7 +403,7 @@ class _HomePageState extends State<HomePage> {
               child: Row(
                 children: [
                   const Icon(Icons.warning_amber_rounded, color: Colors.white),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.w),
                   Expanded(
                     child: Text(
                       'Alarm already exists for $displaySymbol in $market',
@@ -469,7 +487,7 @@ class _HomePageState extends State<HomePage> {
         return Dialog(
           backgroundColor: Colors.transparent,
           child: Container(
-            width: MediaQuery.of(context).size.width * 0.2, // ekran genişliğinin %20'si
+            width: MediaQuery.of(context).size.width.w * 0.2, // ekran genişliğinin %20'si
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -477,8 +495,8 @@ class _HomePageState extends State<HomePage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.amberAccent.shade700, width: 1.5),
+              borderRadius: BorderRadius.circular(20.r),
+              border: Border.all(color: Colors.amberAccent.shade700, width: 1.5.w),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.7),
@@ -496,7 +514,7 @@ class _HomePageState extends State<HomePage> {
                       'Set Alarm',
                       style: TextStyle(
                         color: Colors.amber.shade400,
-                        fontSize: 22,
+                        fontSize: 22.sp,
                         fontWeight: FontWeight.bold,
                         shadows: [
                           Shadow(
@@ -507,14 +525,14 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16.h),
                     // Market Dropdown
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade900,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.amberAccent, width: 1),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: Colors.amberAccent, width: 1.w),
                       ),
                       child: DropdownButton<String>(
                         dropdownColor: Colors.grey.shade800,
@@ -543,15 +561,15 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.h),
                     // Symbol Dropdown
                     if (selectedMarket != null)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade900,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.amberAccent, width: 1),
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(color: Colors.amberAccent, width: 1.w),
                         ),
                         child: DropdownButton<String>(
                           dropdownColor: Colors.grey.shade800,
@@ -568,14 +586,14 @@ class _HomePageState extends State<HomePage> {
                           onChanged: (value) => setState(() => selectedSymbol = value),
                         ),
                       ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.h),
                     // Percentage Dropdown
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade900,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.amberAccent, width: 1),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: Colors.amberAccent, width: 1.w),
                       ),
                       child: DropdownButton<double>(
                         dropdownColor: Colors.grey.shade800,
@@ -592,7 +610,7 @@ class _HomePageState extends State<HomePage> {
                         onChanged: (value) => setState(() => selectedPercentage = value),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20.h),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -603,7 +621,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                           child: const Text('Cancel'),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.w),
                         TextButton(
                           onPressed: () async {
                             if (selectedMarket != null &&
@@ -667,7 +685,7 @@ class _HomePageState extends State<HomePage> {
         return Dialog(
           backgroundColor: Colors.transparent,
           child: Container(
-            width: MediaQuery.of(context).size.width * 0.2, // ekran genişliğinin %40'ı
+            width: MediaQuery.of(context).size.width.w * 0.2, // ekran genişliğinin %40'ı
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -675,8 +693,8 @@ class _HomePageState extends State<HomePage> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.amberAccent.shade700, width: 1.5),
+              borderRadius: BorderRadius.circular(20.r),
+              border: Border.all(color: Colors.amberAccent.shade700, width: 1.5.w),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.7),
@@ -702,7 +720,7 @@ class _HomePageState extends State<HomePage> {
                       'Edit Alarm',
                       style: TextStyle(
                         color: Colors.amber.shade400,
-                        fontSize: 22,
+                        fontSize: 22.sp,
                         fontWeight: FontWeight.bold,
                         shadows: [
                           Shadow(
@@ -713,14 +731,14 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16.h),
                     // Market Dropdown
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade900,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.amberAccent, width: 1),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: Colors.amberAccent, width: 1.w),
                       ),
                       child: DropdownButton<String>(
                         dropdownColor: Colors.grey.shade800,
@@ -749,15 +767,15 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.h),
                     // Symbol Dropdown
                     if (selectedMarket != null)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade900,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.amberAccent, width: 1),
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(color: Colors.amberAccent, width: 1.w),
                         ),
                         child: DropdownButton<String>(
                           dropdownColor: Colors.grey.shade800,
@@ -774,14 +792,14 @@ class _HomePageState extends State<HomePage> {
                           onChanged: (value) => setState(() => selectedSymbol = value),
                         ),
                       ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.h),
                     // Percentage Dropdown
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade900,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.amberAccent, width: 1),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: Colors.amberAccent, width: 1.w),
                       ),
                       child: DropdownButton<double>(
                         dropdownColor: Colors.grey.shade800,
@@ -798,7 +816,7 @@ class _HomePageState extends State<HomePage> {
                         onChanged: (value) => setState(() => selectedPercentage = value),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20.h),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -809,7 +827,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                           child: const Text('Cancel'),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12.w),
                         TextButton(
                           onPressed: () async {
                             if (selectedMarket != null &&
@@ -857,10 +875,10 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Colors.black,
         title: Text(
           '📊 Market Watcher - ${user?.displayName ?? user?.email ?? ''}',
-          style: const TextStyle(
+          style: TextStyle(
             color: Color(0xFFFFD700),
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 22.sp,
             letterSpacing: 1.2,
             shadows: [
               Shadow(
@@ -891,292 +909,254 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: EdgeInsets.all(16.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Sol taraf
-           Expanded(
-              flex: 2,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: MediaQuery.of(context).size.width * 0.15, // ekranın %15'i
-                    height: 60,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Colors.amber, Colors.orangeAccent],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
-                          blurRadius: 6,
-                          offset: const Offset(2, 3),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () => _openSetAlarmDialog(context),
-                        child: const Center(
-                          child: Text(
-                            'Set Alarm',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: MediaQuery.of(context).size.width * 0.15,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Colors.amber, Colors.orangeAccent],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.5),
-                          blurRadius: 6,
-                          offset: const Offset(2, 3),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => WatchMarketPage()),
-                        ),
-                        child: const Center(
-                          child: Text(
-                            'Watch Market',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black),
-                          ),
-                        ),
-                      ),
-                    ),
+            // Followed Panel - Üstte
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.grey.shade900, Colors.grey.shade800],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: Colors.amberAccent, width: 1.5.w),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.7),
+                    blurRadius: 10,
+                    offset: const Offset(2, 4),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 24),
-            // Sağ taraf: Followed
-            Expanded(
-              flex: 1,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade900, Colors.grey.shade800],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.amberAccent, width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.7),
-                      blurRadius: 10,
-                      offset: const Offset(2, 4),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Column(
-                    children: [
-                      Center(
-                        child: Text(
-                          "Followed",
-                          style: TextStyle(
-                            color: Colors.amber.shade400,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            shadows: [
-                              Shadow(
-                                offset: const Offset(1.5, 1.5),
-                                blurRadius: 4,
-                                color: Colors.black87,
-                              ),
-                            ],
-                          ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16.r),
+                child: Column(
+                  children: [
+                    Center(
+                      child: Text(
+                        "Followed",
+                        style: TextStyle(
+                          color: Colors.amber.shade400,
+                          fontSize: 30.sp, // 1.5 kat büyütüldü
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(
+                              offset: const Offset(1.5, 1.5),
+                              blurRadius: 4,
+                              color: Colors.black87,
+                            ),
+                          ],
                         ),
                       ),
-                      Divider(color: Colors.amber.shade400, thickness: 1.2),
-                      Expanded(
-                        child: _loading
-                            ? const Center(
-                                child: CircularProgressIndicator(color: Colors.amber))
-                            : _followedItems.isEmpty
-                                ? const Center(
-                                    child: Text(
-                                      "No alarms yet",
-                                      style: TextStyle(color: Colors.white70),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    itemCount: _followedItems.length,
-                                    itemBuilder: (context, index) {
-                                      final item = _followedItems[index];
-                                      final displayText =
-                                          "${index + 1}. ${item['symbol']} - %${item['percentage']}";
+                    ),
+                    Divider(color: Colors.amber.shade400, thickness: 1.2),
+                    SizedBox(
+                      height: 200.h, // panel yüksekliği
+                      child: _loading
+                          ? const Center(
+                              child: CircularProgressIndicator(color: Colors.amber))
+                          : _followedItems.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    "No alarms yet",
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  itemCount: _followedItems.length,
+                                  itemBuilder: (context, index) {
+                                    final item = _followedItems[index];
+                                    final displayText =
+                                        "${index + 1}. ${item['symbol']} - %${item['percentage']}";
 
-                                      return Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 4),
-                                        child: AnimatedSlide(
-                                          duration: const Duration(milliseconds: 500),
-                                          curve: Curves.easeInOut,
-                                          offset: _isDeleted[item['id']] == true
-                                              ? const Offset(-1.5, 0)
-                                              : Offset.zero,
-                                          child: Slidable(
-                                            key: ValueKey(item['id']),
-                                            startActionPane: ActionPane(
-                                              motion: const DrawerMotion(),
-                                              extentRatio: 0.15,
-                                              children: [
-                                                CustomSlidableAction(
-                                                  onPressed: (context) {
-                                                    _openEditAlarmDialog(context, item);
-                                                  },
-                                                  backgroundColor: Colors.blueAccent.shade700,
-                                                  foregroundColor: Colors.white,
-                                                  padding: EdgeInsets.zero,
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  child: const Icon(Icons.edit,
-                                                      size: 32, color: Colors.white),
-                                                ),
-                                              ],
-                                            ),
-                                            endActionPane: ActionPane(
-                                              motion: const DrawerMotion(),
-                                              extentRatio: 0.15,
-                                              children: [
-                                                CustomSlidableAction(
-                                                  onPressed: (context) async {
-                                                    setState(() {
-                                                      _isDeleted[item['id']] = true;
-                                                    });
-                                                    await Future.delayed(
-                                                        const Duration(milliseconds: 500));
-                                                    await _deleteAlarm(item['id']);
-                                                    setState(() {
-                                                      _followedItems.removeWhere(
-                                                          (e) => e['id'] == item['id']);
-                                                      _isDeleted.remove(item['id']);
-                                                    });
-                                                  },
-                                                  backgroundColor: Colors.red.shade700,
-                                                  foregroundColor: Colors.white,
-                                                  padding: EdgeInsets.zero,
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  child: const Icon(Icons.delete,
-                                                      size: 32, color: Colors.white),
-                                                ),
-                                              ],
-                                            ),
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors: [Colors.grey.shade900, Colors.grey.shade800],
-                                                  begin: Alignment.topCenter,
-                                                  end: Alignment.bottomCenter,
-                                                ),
-                                                borderRadius: BorderRadius.circular(4),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: Colors.black.withOpacity(0.6),
-                                                    blurRadius: 6,
-                                                    offset: const Offset(2, 2),
-                                                  ),
-                                                ],
+                                    return Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 4.h),
+                                      child: AnimatedSlide(
+                                        duration: const Duration(milliseconds: 500),
+                                        curve: Curves.easeInOut,
+                                        offset: _isDeleted[item['id']] == true
+                                            ? const Offset(-1.5, 0)
+                                            : Offset.zero,
+                                        child: Slidable(
+                                          key: ValueKey(item['id']),
+                                          startActionPane: ActionPane(
+                                            motion: const DrawerMotion(),
+                                            extentRatio: 0.15,
+                                            children: [
+                                              CustomSlidableAction(
+                                                onPressed: (context) {
+                                                  _openEditAlarmDialog(context, item);
+                                                },
+                                                backgroundColor: Colors.blueAccent.shade700,
+                                                foregroundColor: Colors.white,
+                                                padding: EdgeInsets.zero,
+                                                borderRadius: BorderRadius.circular(4.r),
+                                                child: Icon(Icons.edit,
+                                                    size: 28.sp, color: Colors.white),
                                               ),
-                                              child: InkWell(
-                                                onTap: () => _openEditAlarmDialog(context, item),
-                                                child: Padding(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                                                  child: Row(
-                                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                                    children: [
-                                                      // Leading Icon
-                                                      Container(
-                                                        width: 40, // Genişlik sınırı
-                                                        height: 40, // Yükseklik sınırı
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.amber.shade600.withOpacity(0.3),
-                                                          shape: BoxShape.circle,
-                                                          boxShadow: [
-                                                            BoxShadow(
-                                                              color: Colors.amber.withOpacity(0.5),
-                                                              blurRadius: 6,
-                                                              spreadRadius: 1,
+                                            ],
+                                          ),
+                                          endActionPane: ActionPane(
+                                            motion: const DrawerMotion(),
+                                            extentRatio: 0.15,
+                                            children: [
+                                              CustomSlidableAction(
+                                                onPressed: (context) async {
+                                                  setState(() {
+                                                    _isDeleted[item['id']] = true;
+                                                  });
+                                                  await Future.delayed(
+                                                      const Duration(milliseconds: 500));
+                                                  await _deleteAlarm(item['id']);
+                                                  setState(() {
+                                                    _followedItems.removeWhere(
+                                                        (e) => e['id'] == item['id']);
+                                                    _isDeleted.remove(item['id']);
+                                                  });
+                                                },
+                                                backgroundColor: Colors.red.shade700,
+                                                foregroundColor: Colors.white,
+                                                padding: EdgeInsets.zero,
+                                                borderRadius: BorderRadius.circular(4.r),
+                                                child: Icon(Icons.delete,
+                                                    size: 28.sp, color: Colors.white),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [Colors.grey.shade900, Colors.grey.shade800],
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                              ),
+                                              borderRadius: BorderRadius.circular(4.r),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(0.6),
+                                                  blurRadius: 6,
+                                                  offset: const Offset(2, 2),
+                                                ),
+                                              ],
+                                            ),
+                                            child: InkWell(
+                                              onTap: () => _openEditAlarmDialog(context, item),
+                                              child: Padding(
+                                                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 36.w,
+                                                      height: 36.h,
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.amber.shade600.withOpacity(0.3),
+                                                        shape: BoxShape.circle,
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.amber.withOpacity(0.5),
+                                                            blurRadius: 6,
+                                                            spreadRadius: 1,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      padding: EdgeInsets.all(6.w),
+                                                      child: Icon(
+                                                        Icons.notifications_active,
+                                                        color: Colors.amber,
+                                                        size: 24.sp,
+                                                      ),
+                                                    ),
+                                                    SizedBox(width: 12.w),
+                                                    Expanded(
+                                                      child: Text(
+                                                        displayText,
+                                                        style: TextStyle(
+                                                          color: Colors.white,
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 14.sp,
+                                                          shadows: [
+                                                            Shadow(
+                                                              offset: Offset(0.8, 0.8),
+                                                              blurRadius: 2,
+                                                              color: Colors.black54,
                                                             ),
                                                           ],
                                                         ),
-                                                        padding: const EdgeInsets.all(6),
-                                                        child: const Icon(
-                                                          Icons.notifications_active,
-                                                          color: Colors.amber,
-                                                          size: 28,
-                                                        ),
                                                       ),
-
-                                                      const SizedBox(width: 12), // Leading ile title arası boşluk
-
-                                                      // Title Text
-                                                      Expanded(
-                                                        child: Text(
-                                                          displayText,
-                                                          style: const TextStyle(
-                                                            color: Colors.white,
-                                                            fontWeight: FontWeight.w600,
-                                                            fontSize: 14,
-                                                            shadows: [
-                                                              Shadow(
-                                                                offset: Offset(0.8, 0.8),
-                                                                blurRadius: 2,
-                                                                color: Colors.black54,
-                                                              ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ),
                                           ),
                                         ),
-                                      );
-                                    },
-                                  ),
-                      ),
-                    ],
-                  ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                    ),
+                  ],
                 ),
               ),
+            ),
+
+            SizedBox(height: 24.h), // Followed panel ile butonlar arası boşluk
+
+            // Set Alarm ve Watch Market butonları
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Set Alarm
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.4,
+                  height: 50.h,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                    onPressed: () => _openSetAlarmDialog(context),
+                    child: Text(
+                      'Set Alarm',
+                      style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black),
+                    ),
+                  ),
+                ),
+                // Watch Market
+                SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.4,
+                  height: 50.h,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orangeAccent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => WatchMarketPage()),
+                    ),
+                    child: Text(
+                      'Watch Market',
+                      style: TextStyle(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1325,7 +1305,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.amber),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Watch Market 📈', style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 22, letterSpacing: 1.5, shadows: [Shadow(offset: Offset(1,1), blurRadius: 3, color: Colors.black54)])),
+        title: Text('Watch Market 📈', style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 22.sp, letterSpacing: 1.5, shadows: [Shadow(offset: Offset(1,1), blurRadius: 3, color: Colors.black54)])),
         backgroundColor: Colors.black,
       ),
       backgroundColor: Colors.black,
@@ -1343,7 +1323,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.h),
                   Expanded(
                     child: Row(
                       children: [
@@ -1376,8 +1356,8 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.amber, width: 1.2),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: Colors.amber, width: 1.2.w),
         boxShadow: [
           BoxShadow(
             color: Colors.amber.withOpacity(0.2),
@@ -1398,10 +1378,10 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                 ).createShader(bounds),
                 child: Text(
                   market,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white, // ShaderMask üstüne uygulanacak
                     fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                    fontSize: 18.sp,
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -1412,7 +1392,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
 
           // Sütun başlıkları
           Row(
-            children: const [
+            children: [
               Expanded(
                 flex: 2,
                 child: Center(
@@ -1420,7 +1400,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                       style: TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.bold,
-                          fontSize: 14)),
+                          fontSize: 14.sp)),
                 ),
               ),
               Expanded(
@@ -1430,7 +1410,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                       style: TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.bold,
-                          fontSize: 14)),
+                          fontSize: 14.sp)),
                 ),
               ),
               Expanded(
@@ -1440,7 +1420,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                       style: TextStyle(
                           color: Colors.amber,
                           fontWeight: FontWeight.bold,
-                          fontSize: 14)),
+                          fontSize: 14.sp)),
                 ),
               ),
             ],
@@ -1481,7 +1461,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                           color: index % 2 == 0
                               ? Colors.black.withOpacity(0.05)
                               : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(6.r),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
@@ -1492,9 +1472,9 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                                 flex: 2,
                                 child: Center(
                                   child: Text(item['symbol'] ?? '',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           color: Colors.white,
-                                          fontSize: 14,
+                                          fontSize: 14.sp,
                                           fontWeight: FontWeight.w500)),
                                 ),
                               ),
@@ -1502,18 +1482,18 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                                 flex: 5,
                                 child: Center(
                                   child: Text(displayName,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           color: Colors.white70,
-                                          fontSize: 14)),
+                                          fontSize: 14.sp)),
                                 ),
                               ),
                               Expanded(
                                 flex: 2,
                                 child: Center(
                                   child: Text(displayPrice,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           color: Colors.amber,
-                                          fontSize: 14,
+                                          fontSize: 14.sp,
                                           fontWeight: FontWeight.bold)),
                                 ),
                               ),
