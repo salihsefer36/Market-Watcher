@@ -923,7 +923,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
   }
   Widget marketColumn(String market) {
   final data = marketData[market] ?? [];
-  
+
   // Fiyatı null veya 0 olanları filtrele
   final filteredData = data.where((item) {
     final priceValue = item['price'];
@@ -935,59 +935,89 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
       margin: const EdgeInsets.all(6),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: Colors.grey[900],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber),
+        gradient: LinearGradient(
+          colors: [Colors.grey.shade900, Colors.grey.shade800],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           // Market başlığı
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Center(
-              child: Text(
-                market,
-                style: const TextStyle(
-                    color: Colors.amber,
+              child: ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Colors.amber, Colors.deepOrangeAccent],
+                ).createShader(bounds),
+                child: Text(
+                  market,
+                  style: const TextStyle(
+                    color: Colors.white, // ShaderMask üstüne uygulanacak
                     fontWeight: FontWeight.bold,
-                    fontSize: 16),
+                    fontSize: 18,
+                    letterSpacing: 1.2,
+                  ),
+                ),
               ),
             ),
           ),
-          const Divider(color: Colors.amber),
+          Divider(color: Colors.amber.shade300, thickness: 1),
+
           // Sütun başlıkları
           Row(
             children: const [
               Expanded(
-                  flex: 2,
-                  child: Center(
-                      child: Text("Symbol",
-                          style: TextStyle(
-                              color: Colors.amber,
-                              fontWeight: FontWeight.bold)))),
+                flex: 2,
+                child: Center(
+                  child: Text("Symbol",
+                      style: TextStyle(
+                          color: Colors.amber,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
+                ),
+              ),
               Expanded(
-                  flex: 5,
-                  child: Center(
-                      child: Text("Name",
-                          style: TextStyle(
-                              color: Colors.amber,
-                              fontWeight: FontWeight.bold)))),
+                flex: 5,
+                child: Center(
+                  child: Text("Name",
+                      style: TextStyle(
+                          color: Colors.amber,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
+                ),
+              ),
               Expanded(
-                  flex: 2,
-                  child: Center(
-                      child: Text("Price",
-                          style: TextStyle(
-                              color: Colors.amber,
-                              fontWeight: FontWeight.bold)))),
+                flex: 2,
+                child: Center(
+                  child: Text("Price",
+                      style: TextStyle(
+                          color: Colors.amber,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
+                ),
+              ),
             ],
           ),
-          const Divider(color: Colors.amber),
+          Divider(color: Colors.amber.shade300, thickness: 0.8),
+
           // Liste
           Expanded(
             child: filteredData.isEmpty
                 ? const Center(
                     child: Text("No data",
-                        style: TextStyle(color: Colors.white70)))
+                        style: TextStyle(color: Colors.white70)),
+                  )
                 : ListView.builder(
                     itemCount: filteredData.length,
                     itemBuilder: (context, index) {
@@ -1010,29 +1040,49 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
                         displayName = "Gram $displayName";
                       }
 
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Row(
-                          children: [
-                            Expanded(
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: index % 2 == 0
+                              ? Colors.black.withOpacity(0.05)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 6, horizontal: 4),
+                          child: Row(
+                            children: [
+                              Expanded(
                                 flex: 2,
                                 child: Center(
-                                    child: Text(item['symbol'] ?? '',
-                                        style: const TextStyle(
-                                            color: Colors.white, fontSize: 14)))),
-                            Expanded(
+                                  child: Text(item['symbol'] ?? '',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500)),
+                                ),
+                              ),
+                              Expanded(
                                 flex: 5,
                                 child: Center(
-                                    child: Text(displayName,
-                                        style: const TextStyle(
-                                            color: Colors.white70, fontSize: 14)))),
-                            Expanded(
+                                  child: Text(displayName,
+                                      style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 14)),
+                                ),
+                              ),
+                              Expanded(
                                 flex: 2,
                                 child: Center(
-                                    child: Text(displayPrice,
-                                        style: const TextStyle(
-                                            color: Colors.amber, fontSize: 14)))),
-                          ],
+                                  child: Text(displayPrice,
+                                      style: const TextStyle(
+                                          color: Colors.amber,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
