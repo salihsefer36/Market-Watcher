@@ -537,8 +537,20 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: Text(
-          'Market Watcher - ${user?.displayName ?? user?.email ?? ''}',
-          style: const TextStyle(color: Color(0xFFFFD700)),
+          '📊 Market Watcher - ${user?.displayName ?? user?.email ?? ''}',
+          style: const TextStyle(
+            color: Color(0xFFFFD700),
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            letterSpacing: 1.2,
+            shadows: [
+              Shadow(
+                offset: Offset(1.5, 1.5),
+                blurRadius: 4,
+                color: Colors.black87,
+              ),
+            ],
+          ),
         ),
         actions: [
           IconButton(
@@ -614,128 +626,176 @@ class _HomePageState extends State<HomePage> {
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber, width: 1),
+                  gradient: LinearGradient(
+                    colors: [Colors.grey.shade900, Colors.grey.shade800],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.amberAccent, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.7),
+                      blurRadius: 10,
+                      offset: const Offset(2, 4),
+                    ),
+                  ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   child: Column(
                     children: [
-                      const Center(
+                      Center(
                         child: Text(
                           "Followed",
                           style: TextStyle(
-                            color: Colors.amber,
-                            fontSize: 18,
+                            color: Colors.amber.shade400,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const Divider(color: Colors.amber),
-                      Expanded(
-  child: _loading
-      ? const Center(
-          child: CircularProgressIndicator(color: Colors.amber))
-      : _followedItems.isEmpty
-          ? const Center(
-              child: Text(
-                "No alarms yet",
-                style: TextStyle(color: Colors.white70),
-              ),
-            )
-          : ListView.builder(
-              itemCount: _followedItems.length,
-              itemBuilder: (context, index) {
-                final item = _followedItems[index];
-                final displayText =
-                    "${index + 1}. ${item['symbol']} - %${item['percentage']}";
-
-                return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: AnimatedSlide(
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeInOut,
-                      offset: _isDeleted[item['id']] == true ? const Offset(-1.5, 0) : Offset.zero,
-                      child: Slidable(
-                        key: ValueKey(item['id']), // item id key olarak kullan
-                        startActionPane: ActionPane(
-                          motion: const DrawerMotion(),
-                          extentRatio: 0.15,
-                          children: [
-                            CustomSlidableAction(
-                              onPressed: (context) {
-                                _openEditAlarmDialog(context, item);
-                              },
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.zero,
-                              borderRadius: BorderRadius.circular(2),
-                              child: const Icon(Icons.edit, size: 32, color: Colors.white),
-                            ),
-                          ],
-                        ),
-                        endActionPane: ActionPane(
-                          motion: const DrawerMotion(),
-                          extentRatio: 0.15,
-                          children: [
-                            CustomSlidableAction(
-                              onPressed: (context) async {
-                                // Sola kaydırma animasyonunu başlat
-                                setState(() {
-                                  _isDeleted[item['id']] = true;
-                                });
-
-                                // 0.5 saniye bekleyip sonra backend ve listeden sil
-                                await Future.delayed(const Duration(milliseconds: 500));
-                                await _deleteAlarm(item['id']);
-                                setState(() {
-                                  _followedItems.removeWhere((e) => e['id'] == item['id']);
-                                  _isDeleted.remove(item['id']);
-                                });
-                              },
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              padding: EdgeInsets.zero,
-                              borderRadius: BorderRadius.circular(2),
-                              child: const Icon(Icons.delete, size: 32, color: Colors.white),
-                            ),
-                          ],
-                        ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey[850],
-                            borderRadius: BorderRadius.circular(2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.6),
-                                blurRadius: 6,
-                                offset: const Offset(2, 2),
+                            shadows: [
+                              Shadow(
+                                offset: const Offset(1.5, 1.5),
+                                blurRadius: 4,
+                                color: Colors.black87,
                               ),
                             ],
                           ),
-                          child: ListTile(
-                            dense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                            leading: const Icon(Icons.notifications_active, color: Colors.amber, size: 28),
-                            title: Text(
-                              displayText,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                              ),
-                            ),
-                            onTap: () {
-                              _openEditAlarmDialog(context, item);
-                            },
-                          ),
                         ),
                       ),
-                    ),
-                  );
-                          },
-                        ),
+                      Divider(color: Colors.amber.shade400, thickness: 1.2),
+                      Expanded(
+                        child: _loading
+                            ? const Center(
+                                child: CircularProgressIndicator(color: Colors.amber))
+                            : _followedItems.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      "No alarms yet",
+                                      style: TextStyle(color: Colors.white70),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    itemCount: _followedItems.length,
+                                    itemBuilder: (context, index) {
+                                      final item = _followedItems[index];
+                                      final displayText =
+                                          "${index + 1}. ${item['symbol']} - %${item['percentage']}";
+
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 4),
+                                        child: AnimatedSlide(
+                                          duration: const Duration(milliseconds: 500),
+                                          curve: Curves.easeInOut,
+                                          offset: _isDeleted[item['id']] == true
+                                              ? const Offset(-1.5, 0)
+                                              : Offset.zero,
+                                          child: Slidable(
+                                            key: ValueKey(item['id']),
+                                            startActionPane: ActionPane(
+                                              motion: const DrawerMotion(),
+                                              extentRatio: 0.15,
+                                              children: [
+                                                CustomSlidableAction(
+                                                  onPressed: (context) {
+                                                    _openEditAlarmDialog(context, item);
+                                                  },
+                                                  backgroundColor: Colors.blueAccent.shade700,
+                                                  foregroundColor: Colors.white,
+                                                  padding: EdgeInsets.zero,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  child: const Icon(Icons.edit,
+                                                      size: 32, color: Colors.white),
+                                                ),
+                                              ],
+                                            ),
+                                            endActionPane: ActionPane(
+                                              motion: const DrawerMotion(),
+                                              extentRatio: 0.15,
+                                              children: [
+                                                CustomSlidableAction(
+                                                  onPressed: (context) async {
+                                                    setState(() {
+                                                      _isDeleted[item['id']] = true;
+                                                    });
+                                                    await Future.delayed(
+                                                        const Duration(milliseconds: 500));
+                                                    await _deleteAlarm(item['id']);
+                                                    setState(() {
+                                                      _followedItems.removeWhere(
+                                                          (e) => e['id'] == item['id']);
+                                                      _isDeleted.remove(item['id']);
+                                                    });
+                                                  },
+                                                  backgroundColor: Colors.red.shade700,
+                                                  foregroundColor: Colors.white,
+                                                  padding: EdgeInsets.zero,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  child: const Icon(Icons.delete,
+                                                      size: 32, color: Colors.white),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  colors: [Colors.grey.shade900, Colors.grey.shade800],
+                                                  begin: Alignment.topCenter,
+                                                  end: Alignment.bottomCenter,
+                                                ),
+                                                borderRadius: BorderRadius.circular(4),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.6),
+                                                    blurRadius: 6,
+                                                    offset: const Offset(2, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: ListTile(
+                                                dense: true,
+                                                contentPadding: const EdgeInsets.symmetric(
+                                                    horizontal: 16, vertical: 6),
+                                                leading: Container(
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.amber.shade600.withOpacity(0.3),
+                                                    shape: BoxShape.circle,
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.amber.withOpacity(0.5),
+                                                        blurRadius: 6,
+                                                        spreadRadius: 1,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  padding: const EdgeInsets.all(6),
+                                                  child: const Icon(Icons.notifications_active,
+                                                      color: Colors.amber, size: 28),
+                                                ),
+                                                title: Text(
+                                                  displayText,
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 14,
+                                                    shadows: [
+                                                      Shadow(
+                                                        offset: Offset(0.8, 0.8),
+                                                        blurRadius: 2,
+                                                        color: Colors.black54,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                onTap: () {
+                                                  _openEditAlarmDialog(context, item);
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                       ),
                     ],
                   ),
@@ -889,7 +949,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.amber),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Watch Market', style: TextStyle(color: Color(0xFFFFD700))),
+        title: const Text('Watch Market 📈', style: TextStyle(color: Color(0xFFFFD700), fontWeight: FontWeight.bold, fontSize: 22, letterSpacing: 1.5, shadows: [Shadow(offset: Offset(1,1), blurRadius: 3, color: Colors.black54)])),
         backgroundColor: Colors.black,
       ),
       backgroundColor: Colors.black,
