@@ -1,6 +1,19 @@
+# Environment & secrets
 .env
-market-watcher-14891-firebase-adminsdk-fbsvc-ddf5535892
+*.env
+
+# Firebase / Google service accounts (özel json dosyaları)
+*firebase-adminsdk-*.json
+
+# Virtual environments
+venv/
 .venv/
+
+# Python cache
 __pycache__/
-*.pyc
-*.json
+*.py[cod]
+
+# OS / IDE junk
+.DS_Store
+.idea/
+.vscode/
