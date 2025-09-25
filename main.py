@@ -20,7 +20,7 @@ load_dotenv()
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 FINNHUB_BASE = "https://finnhub.io/api/v1"
 
-cred = credentials.Certificate("market-watcher-14891-firebase-adminsdk-fbsvc-66f5a6893b.json")
+cred = credentials.Certificate("FIREBASE_CREDENTIALS_PATH")
 if not firebase_admin._apps:  
     firebase_admin.initialize_app(cred)
 
