@@ -3,3 +3,4 @@ market-watcher-14891-firebase-adminsdk-fbsvc-ddf5535892
 .venv/
 __pycache__/
 *.pyc
+*.json
