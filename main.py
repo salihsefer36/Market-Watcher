@@ -28,7 +28,7 @@ if not firebase_json_str:
 
 # JSON'daki \n karakterlerini gerçek satır sonuna çevir
 cred_dict = json.loads(firebase_json_str)
-cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n").replace("\r", "")
 
 # Firebase initialize
 if not firebase_admin._apps:
