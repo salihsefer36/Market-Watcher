@@ -21,12 +21,11 @@ load_dotenv()
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 FINNHUB_BASE = "https://finnhub.io/api/v1"
 
-cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
-if not cred_path or not os.path.exists(cred_path):
-    raise FileNotFoundError(f"{cred_path} bulunamadı!")
-
-cred = credentials.Certificate(cred_path)
+# Firebase initialization using FIREBASE_JSON
 firebase_json_str = os.getenv("FIREBASE_JSON")
+if not firebase_json_str:
+    raise ValueError("FIREBASE_JSON bulunamadı!")
+
 if not firebase_admin._apps:
     cred_dict = json.loads(firebase_json_str)
     cred = credentials.Certificate(cred_dict)
