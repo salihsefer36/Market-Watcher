@@ -12,6 +12,7 @@ import yfinance as yf
 import firebase_admin
 from firebase_admin import credentials, messaging
 from dotenv import load_dotenv
+import json
 
 # ----------------------
 # .env ve Firebase
@@ -25,7 +26,10 @@ if not cred_path or not os.path.exists(cred_path):
     raise FileNotFoundError(f"{cred_path} bulunamadı!")
 
 cred = credentials.Certificate(cred_path)
+firebase_json_str = os.getenv("FIREBASE_JSON")
 if not firebase_admin._apps:
+    cred_dict = json.loads(firebase_json_str)
+    cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
 
 # ----------------------
