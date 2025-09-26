@@ -26,8 +26,12 @@ firebase_json_str = os.getenv("FIREBASE_JSON")
 if not firebase_json_str:
     raise ValueError("FIREBASE_JSON bulunamadı!")
 
+# JSON'daki \n karakterlerini gerçek satır sonuna çevir
+cred_dict = json.loads(firebase_json_str)
+cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+
+# Firebase initialize
 if not firebase_admin._apps:
-    cred_dict = json.loads(firebase_json_str)
     cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
 
