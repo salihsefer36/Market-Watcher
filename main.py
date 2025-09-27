@@ -38,12 +38,15 @@ if not firebase_admin._apps:
 # ----------------------
 # Config ve DB
 # ----------------------
-# Railway Postgres varsa onu kullan, yoksa lokal SQLite
-DB_URL = os.getenv("DATABASE_URL", "sqlite:///./alerts.db")
+
+DB_URL = os.getenv("DATABASE_URL")
+if not DB_URL:
+    raise RuntimeError("DATABASE_URL bulunamadı! Railway'de Postgres URL tanımlı mı kontrol et.")
+
+# SQLAlchemy 2.0 için fix
 if DB_URL.startswith("postgres://"):
-    # SQLAlchemy 2.0 için gerekli (Railway env eski format veriyor)
     DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
-    
+
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "30"))
 NOTIFY_COOLDOWN = int(os.getenv("NOTIFY_COOLDOWN", "3600"))
 CACHE_TTL = int(os.getenv("CACHE_TTL", "3600"))
