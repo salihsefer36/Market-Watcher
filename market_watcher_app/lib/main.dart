@@ -19,20 +19,16 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-   // Yalnızca dikey mod (portrait) kilitli
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
 
-  // Firebase initialization
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // Background message handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // Run the app inside ScreenUtilInit
   runApp(
     ScreenUtilInit(
       designSize: const Size(390, 844), 
@@ -128,11 +124,11 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator(color: Colors.amber)),
           );
         }
-        if (!snapshot.hasData) {
-          return LoginPage();
-        }else {
+        if (snapshot.hasData) {
           return HomePage();
-        }
+        } else {
+          return const LoginPage();
+        } 
       },
     );
   }
@@ -320,7 +316,6 @@ class _HomePageState extends State<HomePage> {
   final String backendBaseUrl = "http://192.168.0.104:8000";
   List<Map<String, dynamic>> _followedItems = [];
   bool _loading = false;
-  Map<int, bool> _isDeleted = {};
 
   // Backend: kullanıcının alarmlarını çek
   Future<void> _fetchUserAlarms() async {
@@ -502,6 +497,9 @@ class _HomePageState extends State<HomePage> {
     final markets = ['BIST', 'NASDAQ', 'CRYPTO', 'METALS'];
     final percentages = [1, 2, 5, 10];
     List<String> symbolsForMarket = [];
+    
+    // Sembollerin yüklenip yüklenmediğini takip etmek için yeni bir state değişkeni
+    bool _isLoadingSymbols = false;
 
     Future<List<String>> _fetchSymbolsForMarket(String market) async {
       try {
@@ -513,6 +511,9 @@ class _HomePageState extends State<HomePage> {
         }
       } catch (e) {
         print("Error fetching symbols for $market: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$market sembolleri yüklenemedi.")));
+        }
       }
       return [];
     }
@@ -522,184 +523,175 @@ class _HomePageState extends State<HomePage> {
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          child: Container(
-            width: MediaQuery.of(context).size.width.w * 0.2, // ekran genişliğinin %20'si
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.grey.shade900, Colors.grey.shade800],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20.r),
-              border: Border.all(color: Colors.amberAccent.shade700, width: 1.5.w),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.7),
-                  blurRadius: 10,
-                  offset: const Offset(3, 4),
-                ),
-              ],
-            ),
-            child: StatefulBuilder(
-              builder: (context, setState) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Set Alarm',
-                      style: TextStyle(
-                        color: Colors.amber.shade400,
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black87,
-                            offset: const Offset(1.5, 1.5),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
+          insetPadding: EdgeInsets.all(24.w), // Kenarlardan boşluk
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return SingleChildScrollView( // Küçük ekranlarda taşmayı önler
+                child: Container(
+                  // Sabit genişlik yerine içeriğe göre boyutlanmasını sağlıyoruz
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.grey.shade900, Colors.black87],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    SizedBox(height: 16.h),
-                    // Market Dropdown
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade900,
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: Colors.amberAccent, width: 1.w),
-                      ),
-                      child: DropdownButton<String>(
-                        dropdownColor: Colors.grey.shade800,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        value: selectedMarket,
-                        hint: const Text('Select Market', style: TextStyle(color: Colors.white)),
-                        items: markets
-                            .map((m) => DropdownMenuItem(
-                                  value: m,
-                                  child: Text(m, style: const TextStyle(color: Colors.white)),
-                                ))
-                            .toList(),
-                        onChanged: (value) async {
-                          setState(() {
-                            selectedMarket = value;
-                            selectedSymbol = null;
-                            symbolsForMarket = [];
-                          });
-                          if (value != null) {
-                            final symbols = await _fetchSymbolsForMarket(value);
-                            setState(() {
-                              symbolsForMarket = symbols;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    SizedBox(height: 12.h),
-                    // Symbol Dropdown
-                    if (selectedMarket != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade900,
-                          borderRadius: BorderRadius.circular(12.r),
-                          border: Border.all(color: Colors.amberAccent, width: 1.w),
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Set Alarm',
+                        style: TextStyle(
+                          color: Colors.amber.shade400,
+                          fontSize: 24.sp,
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      SizedBox(height: 24.h),
+                      
+                      // --- Market Dropdown ---
+                      _buildDropdownContainer(
+                        icon: Icons.store_mall_directory_outlined,
                         child: DropdownButton<String>(
                           dropdownColor: Colors.grey.shade800,
                           isExpanded: true,
                           underline: const SizedBox(),
-                          hint: const Text('Select Symbol', style: TextStyle(color: Colors.white)),
-                          value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
-                          items: symbolsForMarket
-                              .map((s) => DropdownMenuItem(
-                                    value: s,
-                                    child: Text(s, style: const TextStyle(color: Colors.white)),
-                                  ))
-                              .toList(),
-                          onChanged: (value) => setState(() => selectedSymbol = value),
-                        ),
-                      ),
-                    SizedBox(height: 12.h),
-                    // Percentage Dropdown
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade900,
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: Colors.amberAccent, width: 1.w),
-                      ),
-                      child: DropdownButton<double>(
-                        dropdownColor: Colors.grey.shade800,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        hint: const Text('Select Change %', style: TextStyle(color: Colors.white)),
-                        value: selectedPercentage,
-                        items: percentages
-                            .map((p) => DropdownMenuItem(
-                                  value: p.toDouble(),
-                                  child: Text('$p%', style: const TextStyle(color: Colors.white)),
-                                ))
-                            .toList(),
-                        onChanged: (value) => setState(() => selectedPercentage = value),
-                      ),
-                    ),
-                    SizedBox(height: 20.h),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.white70,
-                          ),
-                          child: const Text('Cancel'),
-                        ),
-                        SizedBox(width: 12.w),
-                        TextButton(
-                          onPressed: () async {
-                            if (selectedMarket != null &&
-                                selectedSymbol != null &&
-                                selectedPercentage != null) {
-                              String formattedSymbol = selectedSymbol!;
-                              if (selectedMarket == 'CRYPTO') {
-                                formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
-                              }
-                              await _createOrEditAlarm(
-                                selectedMarket!,
-                                formattedSymbol,
-                                selectedPercentage!,
-                              );
-                              Navigator.pop(context);
-                            }
+                          value: selectedMarket,
+                          hint: const Text('Select Market', style: TextStyle(color: Colors.grey)),
+                          items: markets.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(color: Colors.white)))).toList(),
+                          onChanged: (value) async {
+                            if (value == null) return;
+                            setState(() {
+                              _isLoadingSymbols = true;
+                              selectedMarket = value;
+                              selectedSymbol = null;
+                              symbolsForMarket = [];
+                            });
+                            
+                            final symbols = await _fetchSymbolsForMarket(value);
+                            
+                            setState(() {
+                              symbolsForMarket = symbols;
+                              _isLoadingSymbols = false;
+                            });
                           },
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.amberAccent,
-                            shadowColor: Colors.amberAccent.withOpacity(0.6),
-                          ),
-                          child: const Text('Set'),
                         ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
+                      ),
+                      SizedBox(height: 16.h),
+                      
+                      // --- Symbol Dropdown veya Yükleme Animasyonu ---
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        height: 50.h, // Sabit yükseklik vererek "zıplamayı" önlüyoruz
+                        child: _isLoadingSymbols
+                            ? Center(child: CircularProgressIndicator(color: Colors.amber.shade600, strokeWidth: 2.5))
+                            : (selectedMarket != null
+                                ? _buildDropdownContainer(
+                                    icon: Icons.analytics_outlined,
+                                    child: DropdownButton<String>(
+                                      dropdownColor: Colors.grey.shade800,
+                                      isExpanded: true,
+                                      underline: const SizedBox(),
+                                      hint: const Text('Select Symbol', style: TextStyle(color: Colors.grey)),
+                                      value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
+                                      items: symbolsForMarket.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white)))).toList(),
+                                      onChanged: (value) => setState(() => selectedSymbol = value),
+                                    ),
+                                  )
+                                : const SizedBox()), // Market seçilmediyse boş
+                      ),
+                      SizedBox(height: 16.h),
+                      
+                      // --- Percentage Dropdown ---
+                      _buildDropdownContainer(
+                        icon: Icons.percent_rounded,
+                        child: DropdownButton<double>(
+                          dropdownColor: Colors.grey.shade800,
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          hint: const Text('Select Change %', style: TextStyle(color: Colors.grey)),
+                          value: selectedPercentage,
+                          items: percentages.map((p) => DropdownMenuItem(value: p.toDouble(), child: Text('$p%', style: const TextStyle(color: Colors.white)))).toList(),
+                          onChanged: (value) => setState(() => selectedPercentage = value),
+                        ),
+                      ),
+                      SizedBox(height: 24.h),
+                      
+                      // --- Butonlar ---
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                          ),
+                          SizedBox(width: 12.w),
+                          ElevatedButton(
+                            onPressed: (selectedMarket != null && selectedSymbol != null && selectedPercentage != null)
+                                ? () async {
+                                    String formattedSymbol = selectedSymbol!;
+                                    if (selectedMarket == 'CRYPTO') {
+                                      // Önemli Düzeltme: Backend'e 'USDT' olarak göndermeliyiz
+                                      formattedSymbol = "${selectedSymbol!.toUpperCase()}USDT";
+                                    }
+                                    await _createOrEditAlarm(
+                                      selectedMarket!,
+                                      formattedSymbol,
+                                      selectedPercentage!,
+                                    );
+                                    Navigator.pop(context);
+                                  }
+                                : null, // Buton, tüm seçimler yapılana kadar pasif kalır
+                            child: const Text('Set Alarm'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         );
       },
     );
   }
 
+  // Dropdown'ları sarmalamak için yardımcı bir metot
+  Widget _buildDropdownContainer({required IconData icon, required Widget child}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.w),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Colors.grey.shade800),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.amber.shade600, size: 20.sp),
+          SizedBox(width: 12.w),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+
   void _openEditAlarmDialog(BuildContext context, Map<String, dynamic> alert) {
-    String? selectedMarket = alert['market'] ?? 'BIST';
+    String? selectedMarket = alert['market'];
     String? selectedSymbol = alert['symbol'];
+    if (selectedMarket == 'CRYPTO' && selectedSymbol != null && selectedSymbol.endsWith('USDT')) {
+      selectedSymbol = selectedSymbol.substring(0, selectedSymbol.length - 4);
+    }
+    
     double? selectedPercentage = alert['percentage']?.toDouble();
 
     final markets = ['BIST', 'NASDAQ', 'CRYPTO', 'METALS'];
+    final percentages = [1, 2, 5, 10];
     List<String> symbolsForMarket = [];
+    bool _isLoadingSymbols = false;
 
     Future<List<String>> _fetchSymbolsForMarket(String market) async {
       try {
@@ -720,176 +712,138 @@ class _HomePageState extends State<HomePage> {
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          child: Container(
-            width: MediaQuery.of(context).size.width.w * 0.2, // ekran genişliğinin %40'ı
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.grey.shade900, Colors.grey.shade800],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20.r),
-              border: Border.all(color: Colors.amberAccent.shade700, width: 1.5.w),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.7),
-                  blurRadius: 10,
-                  offset: const Offset(3, 4),
-                ),
-              ],
-            ),
-            child: StatefulBuilder(
-              builder: (context, setState) {
-                if (selectedMarket != null && symbolsForMarket.isEmpty) {
-                  _fetchSymbolsForMarket(selectedMarket!).then((symbols) {
-                    setState(() {
-                      symbolsForMarket = symbols;
-                    });
-                  });
-                }
+          insetPadding: EdgeInsets.all(24.w),
+          child: StatefulBuilder(
+            builder: (context, setState) {
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Edit Alarm',
-                      style: TextStyle(
-                        color: Colors.amber.shade400,
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black87,
-                            offset: const Offset(1.5, 1.5),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
+              if (selectedMarket != null && symbolsForMarket.isEmpty && !_isLoadingSymbols) {
+                setState(() => _isLoadingSymbols = true);
+                _fetchSymbolsForMarket(selectedMarket!).then((symbols) {
+                  setState(() {
+                    symbolsForMarket = symbols;
+                    _isLoadingSymbols = false;
+                  });
+                });
+              }
+
+              return SingleChildScrollView(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.grey.shade900, Colors.black87],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    SizedBox(height: 16.h),
-                    // Market Dropdown
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade900,
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: Colors.amberAccent, width: 1.w),
-                      ),
-                      child: DropdownButton<String>(
-                        dropdownColor: Colors.grey.shade800,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        value: selectedMarket,
-                        hint: const Text('Select Market', style: TextStyle(color: Colors.white)),
-                        items: markets
-                            .map((m) => DropdownMenuItem(
-                                  value: m,
-                                  child: Text(m, style: const TextStyle(color: Colors.white)),
-                                ))
-                            .toList(),
-                        onChanged: (value) async {
-                          setState(() {
-                            selectedMarket = value;
-                            selectedSymbol = null;
-                            symbolsForMarket = [];
-                          });
-                          if (value != null) {
-                            final symbols = await _fetchSymbolsForMarket(value);
-                            setState(() {
-                              symbolsForMarket = symbols;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    SizedBox(height: 12.h),
-                    // Symbol Dropdown
-                    if (selectedMarket != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade900,
-                          borderRadius: BorderRadius.circular(12.r),
-                          border: Border.all(color: Colors.amberAccent, width: 1.w),
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Edit Alarm',
+                        style: TextStyle(
+                          color: Colors.amber.shade400,
+                          fontSize: 24.sp,
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      SizedBox(height: 24.h),
+                      
+                      _buildDropdownContainer(
+                        icon: Icons.store_mall_directory_outlined,
                         child: DropdownButton<String>(
                           dropdownColor: Colors.grey.shade800,
                           isExpanded: true,
                           underline: const SizedBox(),
-                          hint: const Text('Select Symbol', style: TextStyle(color: Colors.white)),
-                          value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
-                          items: symbolsForMarket
-                              .map((s) => DropdownMenuItem(
-                                    value: s,
-                                    child: Text(s, style: const TextStyle(color: Colors.white)),
-                                  ))
-                              .toList(),
-                          onChanged: (value) => setState(() => selectedSymbol = value),
-                        ),
-                      ),
-                    SizedBox(height: 12.h),
-                    // Percentage Dropdown
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade900,
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: Colors.amberAccent, width: 1.w),
-                      ),
-                      child: DropdownButton<double>(
-                        dropdownColor: Colors.grey.shade800,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        hint: const Text('Select Change %', style: TextStyle(color: Colors.white)),
-                        value: selectedPercentage,
-                        items: [1, 2, 5, 10]
-                            .map((p) => DropdownMenuItem(
-                                  value: p.toDouble(),
-                                  child: Text('$p%', style: const TextStyle(color: Colors.white)),
-                                ))
-                            .toList(),
-                        onChanged: (value) => setState(() => selectedPercentage = value),
-                      ),
-                    ),
-                    SizedBox(height: 20.h),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.white70,
-                          ),
-                          child: const Text('Cancel'),
-                        ),
-                        SizedBox(width: 12.w),
-                        TextButton(
-                          onPressed: () async {
-                            if (selectedMarket != null &&
-                                selectedSymbol != null &&
-                                selectedPercentage != null) {
-                              await _createOrEditAlarm(
-                                selectedMarket!,
-                                selectedSymbol!,
-                                selectedPercentage!,
-                                editId: alert['id'],
-                              );
-                              Navigator.pop(context);
-                            }
+                          value: selectedMarket,
+                          items: markets.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(color: Colors.white)))).toList(),
+                          onChanged: (value) async {
+                            if (value == null) return;
+                            setState(() {
+                              _isLoadingSymbols = true;
+                              selectedMarket = value;
+                              selectedSymbol = null;
+                              symbolsForMarket = [];
+                            });
+                            final symbols = await _fetchSymbolsForMarket(value);
+                            setState(() {
+                              symbolsForMarket = symbols;
+                              _isLoadingSymbols = false;
+                            });
                           },
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.amberAccent,
-                            shadowColor: Colors.amberAccent.withOpacity(0.6),
-                          ),
-                          child: const Text('Save'),
                         ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
+                      ),
+                      SizedBox(height: 16.h),
+                      
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        height: 50.h,
+                        child: _isLoadingSymbols
+                            ? Center(child: CircularProgressIndicator(color: Colors.amber.shade600, strokeWidth: 2.5))
+                            : _buildDropdownContainer(
+                                icon: Icons.analytics_outlined,
+                                child: DropdownButton<String>(
+                                  dropdownColor: Colors.grey.shade800,
+                                  isExpanded: true,
+                                  underline: const SizedBox(),
+                                  value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
+                                  hint: const Text('Select Symbol', style: TextStyle(color: Colors.grey)),
+                                  items: symbolsForMarket.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white)))).toList(),
+                                  onChanged: (value) => setState(() => selectedSymbol = value),
+                                ),
+                              ),
+                      ),
+                      SizedBox(height: 16.h),
+                      
+                      _buildDropdownContainer(
+                        icon: Icons.percent_rounded,
+                        child: DropdownButton<double>(
+                          dropdownColor: Colors.grey.shade800,
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          value: selectedPercentage,
+                          hint: const Text('Select Change %', style: TextStyle(color: Colors.grey)),
+                          items: percentages.map((p) => DropdownMenuItem(value: p.toDouble(), child: Text('$p%', style: const TextStyle(color: Colors.white)))).toList(),
+                          onChanged: (value) => setState(() => selectedPercentage = value),
+                        ),
+                      ),
+                      SizedBox(height: 24.h),
+                      
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                          ),
+                          SizedBox(width: 12.w),
+                          ElevatedButton(
+                            onPressed: () async {
+                              if (selectedMarket != null && selectedSymbol != null && selectedPercentage != null) {
+                                String formattedSymbol = selectedSymbol!;
+                                if (selectedMarket == 'CRYPTO') {
+                                  formattedSymbol = "${selectedSymbol!.toUpperCase()}USDT";
+                                }
+                                await _createOrEditAlarm(
+                                  selectedMarket!,
+                                  formattedSymbol,
+                                  selectedPercentage!,
+                                  editId: alert['id'],
+                                );
+                                Navigator.pop(context);
+                              }
+                            },
+                            child: const Text('Save Changes'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         );
       },
@@ -903,300 +857,177 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
-Widget build(BuildContext context) {
-  final user = _auth.currentUser;
-  return Scaffold(
-    backgroundColor: Colors.black,
-    appBar: AppBar(
+  Widget build(BuildContext context) {
+    final user = _auth.currentUser;
+    return Scaffold(
       backgroundColor: Colors.black,
-      title: Text(
-        '📊 Market Watcher - ${user?.displayName ?? user?.email ?? ''}',
-        style: TextStyle(
-          color: Color(0xFFFFD700),
-          fontWeight: FontWeight.bold,
-          fontSize: 22.sp,
-          letterSpacing: 1.2,
-          shadows: [
-            Shadow(
-              offset: Offset(1.5, 1.5),
-              blurRadius: 4,
-              color: Colors.black87,
-            ),
-          ],
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.black,
+        title: Text(
+          user?.displayName ?? 'Market Watcher',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 22.sp,
+          ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.amber),
+            onPressed: () async {
+              await _auth.signOut();
+              await GoogleSignIn().signOut();
+            },
+          ),
+        ],
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.language, color: Color(0xFFFFD700)),
-          onPressed: () {},
-        ),
-        IconButton(
-          icon: const Icon(Icons.logout, color: Color(0xFFFFD700)),
-          onPressed: () async {
-            await _auth.signOut();
-            await GoogleSignIn().signOut();
-            if (!mounted) return;
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => AuthGate()),
-            );
-          },
-        ),
-      ],
-    ),
-    body: Padding(
-      padding: EdgeInsets.all(16.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Followed Panel - Üstte
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(18.w), // biraz daha padding
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.grey.shade900, Colors.grey.shade800],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
+        child: Column(
+          children: [
+            Container(
+              height: MediaQuery.of(context).size.height * 0.55,
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade900.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(20.r),
               ),
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(color: Colors.amberAccent, width: 1.5.w),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.7),
-                  blurRadius: 10,
-                  offset: const Offset(2, 4),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16.r),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Center(
-                    child: Text(
-                      "Followed",
-                      style: TextStyle(
-                        color: Colors.amber.shade400,
-                        fontSize: 45.sp, // 1.5 kat büyütüldü
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          Shadow(
-                            offset: const Offset(1.5, 1.5),
-                            blurRadius: 4,
-                            color: Colors.black87,
-                          ),
-                        ],
-                      ),
+                  Text(
+                    "Takip Edilen Alarmlar",
+                    style: TextStyle(
+                      color: Colors.amber.shade400,
+                      fontSize: 20.sp,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  Divider(color: Colors.amber.shade400, thickness: 1.2),
-                  SizedBox(
-                    height: 300.h, // panel yüksekliği 1.5 kat artırıldı
+                  const Divider(color: Colors.grey, height: 24),
+                  Expanded(
                     child: _loading
-                        ? const Center(
-                            child: CircularProgressIndicator(color: Colors.amber))
+                        ? const Center(child: CircularProgressIndicator(color: Colors.amber))
                         : _followedItems.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  "No alarms yet",
-                                  style: TextStyle(color: Colors.white70),
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.notifications_off_outlined, color: Colors.grey, size: 48.sp),
+                                    SizedBox(height: 16.h),
+                                    Text(
+                                      "Henüz alarm kurulmadı.",
+                                      style: TextStyle(color: Colors.grey, fontSize: 16.sp),
+                                    ),
+                                  ],
                                 ),
                               )
-                            : ListView.builder(
-                                itemCount: _followedItems.length,
-                                itemBuilder: (context, index) {
-                                  final item = _followedItems[index];
-                                  final displayText =
-                                      "${index + 1}. ${item['symbol']} - %${item['percentage']}";
-
-                                  return Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 4.h),
-                                    child: AnimatedSlide(
-                                      duration: const Duration(milliseconds: 500),
-                                      curve: Curves.easeInOut,
-                                      offset: _isDeleted[item['id']] == true
-                                          ? const Offset(-1.5, 0)
-                                          : Offset.zero,
-                                      child: Slidable(
-                                        key: ValueKey(item['id']),
-                                        startActionPane: ActionPane(
-                                          motion: const DrawerMotion(),
-                                          extentRatio: 0.15,
-                                          children: [
-                                            CustomSlidableAction(
-                                              onPressed: (context) {
-                                                _openEditAlarmDialog(context, item);
-                                              },
-                                              backgroundColor: Colors.blueAccent.shade700,
-                                              foregroundColor: Colors.white,
-                                              padding: EdgeInsets.zero,
-                                              borderRadius: BorderRadius.circular(4.r),
-                                              child: Icon(Icons.edit,
-                                                  size: 28.sp, color: Colors.white),
-                                            ),
-                                          ],
-                                        ),
-                                        endActionPane: ActionPane(
-                                          motion: const DrawerMotion(),
-                                          extentRatio: 0.15,
-                                          children: [
-                                            CustomSlidableAction(
-                                              onPressed: (context) async {
-                                                setState(() {
-                                                  _isDeleted[item['id']] = true;
-                                                });
-                                                await Future.delayed(
-                                                    const Duration(milliseconds: 500));
-                                                await _deleteAlarm(item['id']);
-                                                setState(() {
-                                                  _followedItems.removeWhere(
-                                                      (e) => e['id'] == item['id']);
-                                                  _isDeleted.remove(item['id']);
-                                                });
-                                              },
-                                              backgroundColor: Colors.red.shade700,
-                                              foregroundColor: Colors.white,
-                                              padding: EdgeInsets.zero,
-                                              borderRadius: BorderRadius.circular(4.r),
-                                              child: Icon(Icons.delete,
-                                                  size: 28.sp, color: Colors.white),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [Colors.grey.shade900, Colors.grey.shade800],
-                                              begin: Alignment.topCenter,
-                                              end: Alignment.bottomCenter,
-                                            ),
-                                            borderRadius: BorderRadius.circular(4.r),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.6),
-                                                blurRadius: 6,
-                                                offset: const Offset(2, 2),
-                                              ),
-                                            ],
+                            : RefreshIndicator(
+                                onRefresh: _fetchUserAlarms,
+                                color: Colors.amber,
+                                backgroundColor: Colors.grey.shade900,
+                                child: ListView.builder(
+                                  itemCount: _followedItems.length,
+                                  itemBuilder: (context, index) {
+                                    final item = _followedItems[index];
+                                    String symbol = item['symbol'] ?? '';
+                                    if (item['market'] == 'CRYPTO' && symbol.endsWith('USDT')) {
+                                      symbol = symbol.substring(0, symbol.length - 4);
+                                    }
+                                    return Slidable(
+                                      key: ValueKey(item['id']),
+                                      endActionPane: ActionPane(
+                                        motion: const DrawerMotion(),
+                                        extentRatio: 0.25,
+                                        children: [
+                                          SlidableAction(
+                                            onPressed: (context) {
+                                              _followedItems.removeAt(index);
+                                              setState(() {});
+                                              _deleteAlarm(item['id']);
+                                            },
+                                            backgroundColor: Colors.red.shade700,
+                                            foregroundColor: Colors.white,
+                                            icon: Icons.delete_forever,
+                                            label: 'Sil',
+                                            borderRadius: BorderRadius.circular(12.r),
                                           ),
-                                          child: InkWell(
-                                            onTap: () => _openEditAlarmDialog(context, item),
-                                            child: Padding(
-                                              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                                              child: Row(
-                                                children: [
-                                                  Container(
-                                                    width: 36.w,
-                                                    height: 36.h,
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.amber.shade600.withOpacity(0.3),
-                                                      shape: BoxShape.circle,
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          color: Colors.amber.withOpacity(0.5),
-                                                          blurRadius: 6,
-                                                          spreadRadius: 1,
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    padding: EdgeInsets.all(6.w),
-                                                    child: Icon(
-                                                      Icons.notifications_active,
-                                                      color: Colors.amber,
-                                                      size: 24.sp,
-                                                    ),
-                                                  ),
-                                                  SizedBox(width: 12.w),
-                                                  Expanded(
-                                                    child: Text(
-                                                      displayText,
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                        fontWeight: FontWeight.w600,
-                                                        fontSize: 14.sp,
-                                                        shadows: [
-                                                          Shadow(
-                                                            offset: Offset(0.8, 0.8),
-                                                            blurRadius: 2,
-                                                            color: Colors.black54,
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
+                                        ],
                                       ),
-                                    ),
-                                  );
-                                },
+                                      child: ListTile(
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                        leading: CircleAvatar(
+                                          backgroundColor: Colors.amber.withOpacity(0.1),
+                                          child: Icon(Icons.notifications_active_outlined, color: Colors.amber.shade400),
+                                        ),
+                                        title: Text(symbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.sp)),
+                                        subtitle: Text(item['market'] ?? '', style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp)),
+                                        trailing: Text('%${item['percentage']}', style: TextStyle(color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.w500)),
+                                        onTap: () => _openEditAlarmDialog(context, item),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                   ),
                 ],
               ),
             ),
-          ),
 
-          SizedBox(height: 24.h), // Followed panel ile butonlar arası boşluk
+            // 1. SPACER KALDIRILDI: Butonlar artık panelin hemen altına gelecek.
+            // Panel ile butonlar arasında boşluk bırakmak için SizedBox kullanıyoruz.
+            SizedBox(height: 36.h),
 
-          // Set Alarm ve Watch Market butonları alt alta
-          SizedBox(
-            width: double.infinity,
-            height: 60.h,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                  side: BorderSide(color: Colors.amber.shade300, width: 2.w), // outline border
+            // 2. BUTON SIRASI DEĞİŞTİRİLDİ: "Alarm Kur" artık üstte.
+            SizedBox(
+              width: double.infinity,
+              // 3. BUTON BOYUTU ARTIRILDI: Yükseklik 55.h olarak ayarlandı.
+              height: 55.h,
+              child: ElevatedButton.icon(
+                icon: Icon(Icons.add_alert_rounded ,size: 28.sp,),
+                label: Text(
+                  'Alarm Kur',
+                  style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
                 ),
-                elevation: 4,
-                shadowColor: Colors.black54,
-              ),
-              onPressed: () => _openSetAlarmDialog(context),
-              child: Text(
-                'Set Alarm',
-                style: TextStyle(
-                    fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.black),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                ),
+                onPressed: () => _openSetAlarmDialog(context),
               ),
             ),
-          ),
-          SizedBox(height: 16.h),
-          SizedBox(
-            width: double.infinity,
-            height: 60.h,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orangeAccent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                  side: BorderSide(color: Colors.amber.shade300, width: 2.w), // outline border
+            SizedBox(height: 18.h),
+            SizedBox(
+              width: double.infinity,
+              // 3. BUTON BOYUTU ARTIRILDI: Yükseklik 55.h olarak ayarlandı.
+              height: 55.h,
+              child: ElevatedButton.icon(
+                icon: Icon(Icons.bar_chart_rounded, size: 28.sp,),
+                label: Text(
+                  'Piyasaları İzle',
+                  style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
                 ),
-                elevation: 4,
-                shadowColor: Colors.black54,
-              ),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => WatchMarketPage()),
-              ),
-              child: Text(
-                'Watch Market',
-                style: TextStyle(
-                    fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.black),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey.shade800,
+                  foregroundColor: Colors.amber,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                ),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => WatchMarketPage()),
+                ),
               ),
             ),
-          ),
-        ],
+            
+            // Butonların en alta itilmesini istemediğimiz için Spacer'ı kaldırdık.
+            // const Spacer(),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
-}
-
 class WatchMarketPage extends StatefulWidget {
   const WatchMarketPage({super.key});
 
@@ -1204,8 +1035,12 @@ class WatchMarketPage extends StatefulWidget {
   State<WatchMarketPage> createState() => _WatchMarketPageState();
 }
 
-class _WatchMarketPageState extends State<WatchMarketPage> {
-  final String backendBaseUrl = "http://192.168.0.104:8000"; // Backend URL
+// 1. TickerProviderStateMixin is added for TabBar animations.
+class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProviderStateMixin {
+  // Use your local IP for testing on a physical device.
+  // For the Android Emulator, use "http://10.0.2.2:8000".
+  final String backendBaseUrl = "http://192.168.0.104:8000";
+  
   Map<String, List<Map<String, dynamic>>> marketData = {
     "BIST": [],
     "NASDAQ": [],
@@ -1214,347 +1049,175 @@ class _WatchMarketPageState extends State<WatchMarketPage> {
   };
   bool loading = true;
 
+  // 2. TabController is defined for managing tabs.
+  late TabController _tabController;
+
   @override
   void initState() {
     super.initState();
-    fetchAllMarkets();
+    // The controller is initialized with a length matching the number of markets.
+    _tabController = TabController(length: marketData.keys.length, vsync: this);
+    fetchAllDataEfficiently(); // Switched to a more efficient data fetching method
   }
 
-  Future<void> fetchAllMarkets() async {
+  @override
+  void dispose() {
+    _tabController.dispose(); // Clean up the controller when the page is closed
+    super.dispose();
+  }
+  
+  // --- A MORE EFFICIENT DATA FETCHING METHOD ---
+  Future<void> fetchAllDataEfficiently() async {
+    if (!mounted) return;
     setState(() => loading = true);
+    
+    // Clear previous data
+    marketData.forEach((key, value) => value.clear());
+
     try {
-      final responses = await Future.wait([
-        http.get(Uri.parse("$backendBaseUrl/symbols_with_name?market=BIST")),
-        http.get(Uri.parse("$backendBaseUrl/symbols_with_name?market=NASDAQ")),
-        http.get(Uri.parse("$backendBaseUrl/symbols_with_name?market=CRYPTO")),
-        http.get(Uri.parse("$backendBaseUrl/metals")),
-      ]);
-
-      final bistSymbolsRes = responses[0];
-      final nasdaqSymbolsRes = responses[1];
-      final cryptoSymbolsRes = responses[2];
-      final metalsRes = responses[3];
-
-      if (bistSymbolsRes.statusCode == 200) {
-        List<dynamic> list = jsonDecode(bistSymbolsRes.body);
-        marketData["BIST"] = list.map<Map<String, dynamic>>((e) {
-          return {
-            "symbol": e['symbol'] ?? '',
-            "name": e['name'] ?? e['symbol'] ?? '',
-            "price": null,
-          };
-        }).toList();
-      }
-
-      if (nasdaqSymbolsRes.statusCode == 200) {
-        List<dynamic> list = jsonDecode(nasdaqSymbolsRes.body);
-        marketData["NASDAQ"] = list.map<Map<String, dynamic>>((e) {
-          return {
-            "symbol": e['symbol'] ?? '',
-            "name": e['name'] ?? e['symbol'] ?? '',
-            "price": null,
-          };
-        }).toList();
-      }
-
-      if (cryptoSymbolsRes.statusCode == 200) {
-        List<dynamic> list = jsonDecode(cryptoSymbolsRes.body);
-        marketData["CRYPTO"] = list.map<Map<String, dynamic>>((e) {
-          return {
-            "symbol": e['symbol'] ?? '',
-            "name": e['name'] ?? e['symbol'] ?? '',
-            "price": null,
-          };
-        }).toList();
-      }
-
-      if (metalsRes.statusCode == 200) {
-        Map<String, dynamic> metalsMap = jsonDecode(metalsRes.body);
-        marketData["METALS"] = metalsMap.entries.map<Map<String, dynamic>>((e) {
-          final priceValue = e.value;
-          double? price;
-          if (priceValue != null && (priceValue is num)) {
-            price = priceValue.toDouble();
-          }
-          return {
-            "symbol": e.key,
-            "name": e.key,
-            "price": price,
-          };
-        }).toList();
-      }
-
-      // Şimdi fiyatları ayrı endpointten çekip güncelleyelim
-      await fetchAllPrices();
-
-    } catch (e) {
-      print("Error fetching market data: $e");
-    } finally {
-      setState(() => loading = false);
-    }
-  }
-
-  Future<void> fetchAllPrices() async {
-    try {
+      // Fetch all prices and symbols in a single API call
       final res = await http.get(Uri.parse("$backendBaseUrl/prices"));
       if (res.statusCode == 200) {
-        List<dynamic> pricesList = jsonDecode(res.body);
-        Map<String, double?> priceMap = {};
-        for (var p in pricesList) {
-          if (p['symbol'] != null) {
-            final key = p['symbol'];
-            final priceValue = p['price'];
-            double? price;
-            if (priceValue != null && priceValue is num) {
-              price = priceValue.toDouble();
-            }
-            priceMap[key] = price;
+        final List<dynamic> allData = jsonDecode(res.body);
+        
+        // Sort the data from the single endpoint into the correct market lists
+        for (var item in allData) {
+          final market = item['market'];
+          if (market != null && marketData.containsKey(market)) {
+            marketData[market]?.add(item);
           }
         }
-
-        // Fiyatları marketData ile eşleştir
-        marketData.forEach((market, list) {
-          for (var item in list) {
-            final sym = item['symbol'];
-            if (sym != null && priceMap.containsKey(sym)) {
-              item['price'] = priceMap[sym];
-            }
-          }
-        });
+      } else {
+        throw Exception('Failed to load market data');
       }
     } catch (e) {
-      print("Error fetching prices: $e");
+      print("Error fetching market data: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Piyasa verileri yüklenemedi."))
+        );
+      }
     } finally {
-      setState(() {});
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.amber),
-        onPressed: () => Navigator.pop(context),
-      ),
-      title: Text(
-        'Watch Market 📈',
-        style: TextStyle(
-          color: const Color(0xFFFFD700),
-          fontWeight: FontWeight.bold,
-          fontSize: 22.sp,
-          letterSpacing: 1.5,
-          shadows: [
-            const Shadow(
-              offset: Offset(1, 1),
-              blurRadius: 3,
-              color: Colors.black54,
-            ),
-          ],
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.amber),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Watch Market 📈',
+          style: TextStyle(
+            color: Colors.amber,
+            fontWeight: FontWeight.bold,
+            fontSize: 22.sp,
+          ),
+        ),
+        backgroundColor: Colors.black,
+        // 3. A TabBar is added to the bottom of the AppBar.
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          indicatorColor: Colors.amber,
+          labelColor: Colors.amber,
+          unselectedLabelColor: Colors.grey,
+          labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+          tabs: marketData.keys.map((market) => Tab(text: market)).toList(),
         ),
       ),
       backgroundColor: Colors.black,
-    ),
-    backgroundColor: Colors.black,
-    body: loading
-        ? const Center(child: CircularProgressIndicator(color: Colors.amber))
-        : Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: ListView(
-              children: [
-                marketColumn("BIST"),
-                SizedBox(height: 12.h),
-                marketColumn("NASDAQ"),
-                SizedBox(height: 12.h),
-                marketColumn("CRYPTO"),
-                SizedBox(height: 12.h),
-                marketColumn("METALS"),
-              ],
+      body: loading
+          ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+          // 4. The body is now a TabBarView, which displays content based on the selected tab.
+          : TabBarView(
+              controller: _tabController,
+              children: marketData.keys.map((market) {
+                final data = marketData[market] ?? [];
+                final filteredData = data.where((item) => item['price'] != null && item['price'] > 0).toList();
+                
+                return _buildMarketList(market, filteredData);
+              }).toList(),
             ),
-          ),
-  );
-}
+    );
+  }
 
-  Widget marketColumn(String market) {
-  final data = marketData[market] ?? [];
-
-  // Fiyatı null veya 0 olanları filtrele
-  final filteredData = data.where((item) {
-    final priceValue = item['price'];
-    return priceValue != null && priceValue is num && priceValue > 0;
-  }).toList();
-
-  return Container(
-    margin: const EdgeInsets.all(6),
-    padding: const EdgeInsets.all(6),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [Colors.grey.shade900, Colors.grey.shade800],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(16.r),
-      border: Border.all(color: Colors.amber, width: 1.2.w),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.amber.withOpacity(0.2),
-          blurRadius: 8,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    ),
-    child: Column(
+  // 5. This new helper method builds the content for each tab.
+  Widget _buildMarketList(String market, List<Map<String, dynamic>> data) {
+    return Column(
       children: [
-        // Market başlığı
+        // Column Headers
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Center(
-            child: ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Colors.amber, Colors.deepOrangeAccent],
-              ).createShader(bounds),
-              child: Text(
-                market,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18.sp,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          child: Row(
+            children: [
+              Expanded(flex: 3, child: Text("Sembol", style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
+              Expanded(flex: 5, child: Text("İsim", style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
+              Expanded(flex: 3, child: Align(alignment: Alignment.centerRight, child: Text("Fiyat", style: TextStyle(color: Colors.grey, fontSize: 12.sp)))),
+            ],
           ),
         ),
-        Divider(color: Colors.amber.shade300, thickness: 1),
+        const Divider(color: Color(0xFF222222), height: 1),
+        
+        // The List
+        Expanded(
+          child: data.isEmpty
+              ? Center(child: Text("Veri bulunamadı", style: TextStyle(color: Colors.grey, fontSize: 16.sp)))
+              : RefreshIndicator(
+                  onRefresh: fetchAllDataEfficiently,
+                  color: Colors.amber,
+                  backgroundColor: Colors.grey.shade900,
+                  child: ListView.separated(
+                    itemCount: data.length,
+                    separatorBuilder: (context, index) => const Divider(color: Color(0xFF222222), height: 1, indent: 16, endIndent: 16),
+                    itemBuilder: (context, index) {
+                      final item = data[index];
+                      final priceValue = item['price'] as num;
+                      
+                      String currencySymbol = (market == "BIST" || market == "METALS") ? "₺" : "\$";
+                      String displayPrice = "${priceValue.toStringAsFixed(2)}$currencySymbol";
+                      String displayName = item['name'] ?? item['symbol'] ?? '';
+                      if (market == "METALS") displayName = "Gram $displayName";
 
-        // Sütun başlıkları
-        Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: Center(
-                child: Text("Symbol",
-                    style: TextStyle(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14.sp)),
-              ),
-            ),
-            Expanded(
-              flex: 5,
-              child: Center(
-                child: Text("Name",
-                    style: TextStyle(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14.sp)),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Center(
-                child: Text("Price",
-                    style: TextStyle(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14.sp)),
-              ),
-            ),
-          ],
-        ),
-        Divider(color: Colors.amber.shade300, thickness: 0.8),
+                      // Clean crypto symbols for display
+                      String displaySymbol = item['symbol'] ?? '';
+                      if (market == "CRYPTO" && displaySymbol.endsWith('USDT')) {
+                        displaySymbol = displaySymbol.substring(0, displaySymbol.length - 4);
+                      }
 
-        // Liste
-        filteredData.isEmpty
-            ? const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(12.0),
-                  child: Text("No data",
-                      style: TextStyle(color: Colors.white70)),
+                      return Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.sp)),
+                            ),
+                            Expanded(
+                              flex: 5,
+                              child: Text(displayName, style: TextStyle(color: Colors.grey.shade400, fontSize: 13.sp), overflow: TextOverflow.ellipsis),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(displayPrice, style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14.sp, letterSpacing: 0.5)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              )
-            : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredData.length,
-                itemBuilder: (context, index) {
-                  final item = filteredData[index];
-                  final priceValue = item['price'] as double;
-
-                  // Market bazlı simge ekleme
-                  String currencySymbol;
-                  if (market == "BIST" || market == "METALS") {
-                    currencySymbol = "₺";
-                  } else {
-                    currencySymbol = "\$";
-                  }
-
-                  String displayPrice;
-                  if (priceValue % 1 == 0) {
-                    // Tam sayı ise
-                    displayPrice = "${priceValue.toInt()}$currencySymbol";
-                  } else {
-                    // 1 ondalık basamak göster
-                    displayPrice = "${priceValue.toStringAsFixed(1)}$currencySymbol";
-                  }
-
-                  // Metals için özel name
-                  String displayName =
-                      item['name'] ?? item['symbol'] ?? '';
-                  if (market == "METALS") {
-                    displayName = "Gram $displayName";
-                  }
-
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: index % 2 == 0
-                          ? Colors.black.withOpacity(0.05)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6.r),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 6, horizontal: 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: Center(
-                              child: Text(item['symbol'] ?? '',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13.sp,
-                                      fontWeight: FontWeight.w500)),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 5,
-                            child: Center(
-                              child: Text(displayName,
-                                  style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12.sp)),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Center(
-                              child: Text(displayPrice,
-                                  style: TextStyle(
-                                      color: Colors.amber,
-                                      fontSize: 11.sp,
-                                      fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+        ),
       ],
-    ),
-  );
-}
-
+    );
+  }
 }
