@@ -139,168 +139,170 @@ class AuthGate extends StatelessWidget {
 }
 
 class LoginPage extends StatelessWidget {
-  Future<UserCredential?> signInWithGoogle() async {
+  const LoginPage({super.key});
+
+  // LoginPage içinde
+  Future<void> signInWithGoogle(BuildContext context) async {
     try {
       if (kIsWeb) {
         GoogleAuthProvider authProvider = GoogleAuthProvider();
-        return await FirebaseAuth.instance.signInWithPopup(authProvider);
+        await FirebaseAuth.instance.signInWithPopup(authProvider);
       } else {
         final googleUser = await GoogleSignIn().signIn();
-        if (googleUser == null) return null;
+        // 1. Kullanıcı iptal ederse, fonksiyon sessizce sonlanır.
+        if (googleUser == null) return; 
+
         final googleAuth = await googleUser.authentication;
         final credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
         );
-        return await FirebaseAuth.instance.signInWithCredential(credential);
+        // 2. Başarılı olursa, AuthGate yönlendirmeyi yapar.
+        // Hata olursa, doğrudan catch bloğuna atlar.
+        await FirebaseAuth.instance.signInWithCredential(credential);
       }
     } catch (e) {
       print('Google Sign-In hatası: $e');
-      return null;
+      // 3. Her türlü hata burada yakalanır ve kullanıcıya gösterilir.
+      if (context.mounted) {
+        _showErrorSnackBar(context, 'Bir hata oluştu. Lütfen tekrar deneyin.');
+      }
     }
+  }
+
+  void _showErrorSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.red.shade700, Colors.redAccent.shade400],
+            ),
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 12.w),
+              Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Center(
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 400),
-          padding: const EdgeInsets.all(24),
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width.w * 0.5,
+      body: Container(
+        // 1. Arka Plana Derinlik Katıyoruz
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.grey.shade900, Colors.black],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.grey.shade900, Colors.grey.shade800],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24.r),
-            border: Border.all(color: Colors.amberAccent.shade700, width: 1.5.w),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.7),
-                blurRadius: 12,
-                offset: const Offset(4, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Market Watcher',
-                style: TextStyle(
-                  fontSize: 32.sp,
-                  fontWeight: FontWeight.bold,
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 40.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Spacer(flex: 2),
+
+                // 2. Uygulama Logosu ve Başlığı
+                Icon(
+                  Icons.insights_rounded, // Tematik bir ikon
+                  size: 80.sp,
                   color: Colors.amber.shade400,
                   shadows: [
-                    Shadow(
-                      color: Colors.black87,
-                      offset: const Offset(2, 2),
-                      blurRadius: 6,
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 32.h),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Colors.amber, Colors.orangeAccent],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12.r),
-                  boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.5),
-                      blurRadius: 6,
-                      offset: const Offset(2, 3),
-                    ),
+                      color: Colors.amber.shade400.withOpacity(0.5),
+                      blurRadius: 18.0,
+                      spreadRadius: 2.0,
+                    )
                   ],
                 ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12.r),
-                    onTap: () async {
-                      final userCredential = await signInWithGoogle();
-                      if (userCredential != null) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => HomePage()),
-                        );
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            behavior: SnackBarBehavior.floating, // ekranın altında yüzen tarz
-                            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                            backgroundColor: Colors.transparent, // şeffaf yapıp Container ile süsleyeceğiz
-                            elevation: 0,
-                            duration: const Duration(seconds: 3),
-                            content: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [Colors.red.shade700, Colors.redAccent.shade400],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(16.r),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.6),
-                                    blurRadius: 8,
-                                    offset: const Offset(2, 3),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.error_outline, color: Colors.white),
-                                  SizedBox(width: 12.w),
-                                  Expanded(
-                                    child: Text(
-                                      'Giriş başarısız',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                SizedBox(height: 16.h),
+                Text(
+                  'Market Watcher',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 40.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  'Instant market alerts',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+
+                const Spacer(flex: 3),
+
+                // 3. Giriş Butonu
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Colors.amber, Colors.orangeAccent],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16.r), // Daha modern bir border radius
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16.r),
+                      onTap: () => signInWithGoogle(context),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 24.w),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Image.asset(
+                              'assets/images/google_logo.png',
+                              height: 24.h,
+                            ),
+                            SizedBox(width: 12.w),
+                            Text(
+                              'Sign in with Google',
+                              style: TextStyle(
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
                               ),
                             ),
-                          ),
-                        );
-                      }
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Image.asset('assets/images/google_logo.png', height: 24.h, width: 24.w),
-                          SizedBox(width: 12.w),
-                          Text(
-                            'Google ile Giriş Yap',
-                            style: TextStyle(
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                const Spacer(flex: 1),
+              ],
+            ),
           ),
         ),
       ),
