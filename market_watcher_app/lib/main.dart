@@ -311,7 +311,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final String backendBaseUrl = "https://market-watcher-production.up.railway.app";
+  final String backendBaseUrl = "http://127.0.0.1:8000";
   List<Map<String, dynamic>> _followedItems = [];
   bool _loading = false;
   Map<int, bool> _isDeleted = {};
@@ -320,37 +320,60 @@ class _HomePageState extends State<HomePage> {
   Future<void> _fetchUserAlarms() async {
     setState(() => _loading = true);
     try {
-      final userToken = _auth.currentUser?.uid ?? "test-user"; // fallback test user
-      final uri = Uri.parse("$backendBaseUrl/alerts?user_token=$userToken");
+      // 1. Değişken adını anlamlı hale getirdik.
+      final userUid = _auth.currentUser?.uid;
+      
+      // UID yoksa (kullanıcı giriş yapmamışsa) işlemi durdur.
+      if (userUid == null) {
+        setState(() {
+          _followedItems = []; // Listeyi boşalt
+          _loading = false;
+        });
+        return;
+      }
+
+      // 2. Sorgu parametresini "user_uid" olarak düzelttik.
+      final uri = Uri.parse("$backendBaseUrl/alerts?user_uid=$userUid"); 
       final res = await http.get(uri);
+
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
-        setState(() {
-          _followedItems = data.map((e) {
-            final Map<String, dynamic> item = Map<String, dynamic>.from(e);
-
-            // Eğer CRYPTO market ise ve sembol 'T' ile bitiyorsa sondaki 'T'yi at
-            if (item['market'] == 'CRYPTO' && item['symbol'].endsWith('T')) {
-              item['symbol'] = item['symbol'].substring(0, item['symbol'].length - 1);
-            }
-
-            return item;
-          }).toList();
-        });
+        if (mounted) { // Asenkron işlem sonrası widget'ın hala ağaçta olduğundan emin ol
+          setState(() {
+            _followedItems = data.map((e) {
+              final Map<String, dynamic> item = Map<String, dynamic>.from(e);
+              if (item['market'] == 'CRYPTO' && item['symbol'].endsWith('T')) {
+                item['symbol'] = item['symbol'].substring(0, item['symbol'].length - 1);
+              }
+              return item;
+            }).toList();
+          });
+        }
       }
     } catch (e) {
       print("Error fetching alerts: $e");
     }
-    setState(() => _loading = false);
+
+    if (mounted) {
+      setState(() => _loading = false);
+    }
   }
 
   Future<void> _createOrEditAlarm(String market,String symbol,double percentage, {int? editId,}) async {
     try {
-      final userToken = _auth.currentUser?.uid ?? "test-user";
+      // 1. Firebase Auth'dan UID'yi al
+      final userUid = _auth.currentUser?.uid;
+      if (userUid == null) {
+        // Kullanıcı giriş yapmamışsa işlem yapma
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please sign in first')));
+        return;
+      }
 
-      String backendSymbol = symbol;
-      if (market == 'METALS') {
-        backendSymbol = symbol.toUpperCase();
+      // 2. Firebase Messaging'den FCM Cihaz Token'ını al
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken == null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not get notification token. Please try again.')));
+        return;
       }
 
       final exists = _followedItems.any((alarm) {
@@ -430,9 +453,10 @@ class _HomePageState extends State<HomePage> {
 
       final body = jsonEncode({
         "market": market,
-        "symbol": backendSymbol,
+        "symbol": symbol,
         "percentage": percentage,
-        "user_token": userToken
+        "user_uid": userUid,       // <-- EKLENDİ
+        "user_token": fcmToken     // <-- Artık bu cihaz token'ı
       });
 
       final res = editId != null
@@ -1175,7 +1199,7 @@ class WatchMarketPage extends StatefulWidget {
 }
 
 class _WatchMarketPageState extends State<WatchMarketPage> {
-  final String backendBaseUrl = "https://market-watcher-production.up.railway.app"; // Backend URL
+  final String backendBaseUrl = "http://127.0.0.1:8000"; // Backend URL
   Map<String, List<Map<String, dynamic>>> marketData = {
     "BIST": [],
     "NASDAQ": [],

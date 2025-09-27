@@ -6,7 +6,7 @@ from typing import Optional, List, Dict
 from fastapi import FastAPI, HTTPException, Query, Path
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
-from sqlmodel import SQLModel, Field, create_engine, Session, select
+from sqlmodel import SQLModel, Field, create_engine, Session, select, delete
 import yfinance as yf
 
 import firebase_admin
@@ -24,13 +24,11 @@ FINNHUB_BASE = "https://finnhub.io/api/v1"
 # Firebase initialization using FIREBASE_JSON
 firebase_json_str = os.getenv("FIREBASE_JSON")
 if not firebase_json_str:
-    raise ValueError("FIREBASE_JSON bulunamadı!")
+    raise ValueError("FIREBASE_JSON ortam değişkeni bulunamadı!")
 
-# JSON'daki \n karakterlerini gerçek satır sonuna çevir
 cred_dict = json.loads(firebase_json_str)
 cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n").replace("\r", "")
 
-# Firebase initialize
 if not firebase_admin._apps:
     cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
@@ -43,13 +41,10 @@ DB_URL = os.getenv("DATABASE_URL")
 if not DB_URL:
     raise RuntimeError("DATABASE_URL bulunamadı! Railway'de Postgres URL tanımlı mı kontrol et.")
 
-# SQLAlchemy 2.0 için fix
 if DB_URL.startswith("postgres://"):
     DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
 
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "30"))
-NOTIFY_COOLDOWN = int(os.getenv("NOTIFY_COOLDOWN", "3600"))
-CACHE_TTL = int(os.getenv("CACHE_TTL", "3600"))
+CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "60")) # API limitlerini zorlamamak için 60 saniyeye çekmek mantıklı olabilir
 
 engine = create_engine(DB_URL, echo=False)
 app = FastAPI(title="MarketWatcher Backend")
@@ -62,10 +57,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-cache: Dict[str, dict] = {}
-
 # ----------------------------
-# DB Model
+# DB Model (GÜNCELLENDİ)
 # ----------------------------
 class Alert(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
@@ -77,13 +70,15 @@ class Alert(SQLModel, table=True):
     upper_limit: float
     lower_limit: float
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    user_token: Optional[str] = None
+    user_token: Optional[str] = None  # FCM Cihaz Token'ı
+    user_uid: Optional[str] = Field(default=None, index=True) # Firebase Auth UID'si
 
 class AlertCreate(SQLModel):
     market: str
     symbol: str
     percentage: float
-    user_token: Optional[str] = None
+    user_token: Optional[str] = None  # FCM Cihaz Token'ı
+    user_uid: Optional[str] = None    # Firebase Auth UID'si
 
 # ----------------------------
 # DB ve tablo oluşturma
@@ -92,15 +87,14 @@ def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
 # ----------------------------
-# CRUD
+# CRUD (GÜVENLİK VE MANTIK DÜZELTMELERİ YAPILDI)
 # ----------------------------
 @app.post("/alerts", response_model=Alert)
 async def create_alert(alert_in: AlertCreate):
-    import traceback
     try:
         current_price = await fetch_price(alert_in.symbol)
         if current_price is None:
-            raise HTTPException(status_code=400, detail="Price not found for symbol")
+            raise HTTPException(status_code=400, detail=f"Price not found for symbol: {alert_in.symbol}")
 
         perc = float(alert_in.percentage)
         upper = current_price * (1 + perc / 100)
@@ -113,54 +107,53 @@ async def create_alert(alert_in: AlertCreate):
             base_price=current_price,
             upper_limit=upper,
             lower_limit=lower,
-            user_token=alert_in.user_token
+            user_token=alert_in.user_token,
+            user_uid=alert_in.user_uid
         )
 
         with Session(engine) as session:
             session.add(alert)
             session.commit()
             session.refresh(alert)
-
         return alert
     except Exception as e:
+        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/alerts", response_model=List[Alert])
-def list_alerts(user_token: Optional[str] = Query(None)):
-    with Session(engine) as session:
+def list_alerts(user_uid: Optional[str] = Query(None)):
+      with Session(engine) as session:
         query = select(Alert)
-        if user_token:
-            query = query.where(Alert.user_token == user_token)
+        if user_uid:
+            query = query.where(Alert.user_uid == user_uid)
         alerts = session.exec(query).all()
-    return alerts
+      return alerts
 
 @app.delete("/alerts/{alert_id}")
-def delete_alert(alert_id: int):
+def delete_alert(alert_id: int, user_uid: str = Query(..., description="The UID of the user deleting the alert")):
     with Session(engine) as session:
         alert = session.get(Alert, alert_id)
-        if not alert:
-            raise HTTPException(status_code=404, detail="Alert not found")
+        if not alert or alert.user_uid != user_uid:
+            raise HTTPException(status_code=404, detail="Alert not found or permission denied")
         session.delete(alert)
         session.commit()
     return {"ok": True}
 
 @app.put("/alerts/{alert_id}", response_model=Alert)
-async def edit_alert(
-    alert_id: int = Path(..., description="ID of the alert to edit"),
-    alert_in: AlertCreate = ...
-):
-    import traceback
+async def edit_alert(alert_id: int, alert_in: AlertCreate): 
     try:
         with Session(engine) as session:
             alert = session.get(Alert, alert_id)
-            if not alert:
-                raise HTTPException(status_code=404, detail="Alert not found")
+            
+            if not alert or alert.user_uid != alert_in.user_uid:
+                raise HTTPException(status_code=404, detail="Alert not found or permission denied")
 
             alert.market = alert_in.market
             alert.symbol = alert_in.symbol.upper()
             alert.percentage = float(alert_in.percentage)
             alert.user_token = alert_in.user_token
+            alert.user_uid = alert_in.user_uid
 
             current_price = await fetch_price(alert.symbol)
             if current_price is not None:
@@ -173,6 +166,7 @@ async def edit_alert(
             session.refresh(alert)
             return alert
     except Exception as e:
+        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -186,9 +180,9 @@ def send_push_notification(token: str, title: str, body: str):
             token=token
         )
         response = messaging.send(message)
-        print(f"Push sent: {response}")
+        print(f"Push notification sent successfully: {response}")
     except Exception as e:
-        print("FCM send error:", e)
+        print(f"Error sending FCM notification: {e}")
 
 # ----------------------------
 # Price Fetch
@@ -196,10 +190,6 @@ def send_push_notification(token: str, title: str, body: str):
 
 async def fetch_price(symbol: str):
     symbol = symbol.upper()
-
-    # ----------------------------
-    # Metals (async uyumlu)
-    # ----------------------------
     metals_yf = {"ALTIN": "GC=F", "GÜMÜŞ": "SI=F", "BAKIR": "HG=F"}
     if symbol in metals_yf:
         try:
@@ -209,10 +199,7 @@ async def fetch_price(symbol: str):
             return round((price_usd * usdtry) / 31.1035, 2)
         except:
             return None
-
-    # ----------------------------
-    # BIST (async uyumlu)
-    # ----------------------------
+        
     if symbol.endswith(".IS") or symbol in BIST_FALLBACK_NAMES:
         try:
             yf_symbol = symbol if symbol.endswith(".IS") else f"{symbol}.IS"
@@ -221,12 +208,7 @@ async def fetch_price(symbol: str):
             return round(float(price), 2)
         except:
             return None
-
-    # ----------------------------
-    # NASDAQ & Crypto (tek AsyncClient)
-    # ----------------------------
     async with httpx.AsyncClient(timeout=10) as client:
-        # NASDAQ
         if symbol in POPULAR_NASDAQ:
             try:
                 r = await client.get(f"{FINNHUB_BASE}/quote", params={"symbol": symbol, "token": FINNHUB_API_KEY})
@@ -237,7 +219,6 @@ async def fetch_price(symbol: str):
             except:
                 return None
 
-        # Crypto
         if symbol.endswith("USDT"):
             try:
                 r = await client.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": symbol})
@@ -248,38 +229,56 @@ async def fetch_price(symbol: str):
             except Exception as e:
                 print(f"Crypto fetch error for {symbol}: {e}")
                 return None
-        # ----------------------------
-        # Desteklenmeyen sembol
-        # ----------------------------
+
         return None
 # ----------------------------
-# Price Check Loop
+# Price Check Loop 
 # ----------------------------
 async def price_check_loop():
     while True:
         try:
             with Session(engine) as session:
-                alerts = session.exec(select(Alert)).all()
-            for alert in alerts:
-                price = await fetch_price(alert.symbol)
+                all_alerts = session.exec(select(Alert)).all()
+            
+            if not all_alerts:
+                await asyncio.sleep(CHECK_INTERVAL)
+                continue
+
+            unique_symbols = {alert.symbol for alert in all_alerts}
+            
+            prices = {}
+            for symbol in unique_symbols:
+                price = await fetch_price(symbol)
                 if price is not None:
-                    if price >= alert.upper_limit or price <= alert.lower_limit:
-                        # Bildirim gönder
-                        if alert.user_token:
-                            direction = "arttı" if price >= alert.upper_limit else "azaldı"
-                            send_push_notification(
-                                token=alert.user_token,
-                                title=f"{alert.symbol} Alarm",
-                                body=f"{alert.symbol} %{alert.percentage} {direction} ve {price:.2f} TL oldu"
-                            )
-                        # Alarmı DB'den sil
-                        with Session(engine) as session:
-                            db_alert = session.get(Alert, alert.id)
-                            if db_alert:
-                                session.delete(db_alert)
-                                session.commit()
+                    prices[symbol] = price
+            
+            alerts_to_delete_ids = []
+
+            for alert in all_alerts:
+                current_price = prices.get(alert.symbol)
+                if current_price is None:
+                    continue
+
+                if current_price >= alert.upper_limit or current_price <= alert.lower_limit:
+                    if alert.user_token:
+                        direction = "yükseldi" if current_price >= alert.upper_limit else "düştü"
+                        title = f"{alert.symbol} Fiyat Alarmı"
+                        body = f"{alert.symbol} fiyatı %{alert.percentage} {direction} ve {current_price:.2f} oldu."
+                        send_push_notification(token=alert.user_token, title=title, body=body)
+                    
+                    alerts_to_delete_ids.append(alert.id)
+
+            if alerts_to_delete_ids:
+                with Session(engine) as session:
+                    delete_stmt = delete(Alert).where(Alert.id.in_(alerts_to_delete_ids))
+                    session.exec(delete_stmt)
+                    session.commit()
+                    print(f"Deleted {len(alerts_to_delete_ids)} triggered alerts.")
+
         except Exception as e:
-            print("Error in price_check_loop:", e)
+            print(f"CRITICAL ERROR in price_check_loop: {e}")
+        
+        print(f"Price check loop finished. Waiting for {CHECK_INTERVAL} seconds.")
         await asyncio.sleep(CHECK_INTERVAL)
 
 @app.on_event("startup")
@@ -422,7 +421,7 @@ BIST_FALLBACK_NAMES = {
 }
 
 async def get_bist_symbols_with_name():
-    # Sadece fallback dictionary kullanıyoruz, API çağrısı yok
+    # We only use the fallback names for simplicity, not API calls
     return [{"symbol": s.split(".")[0], "name": BIST_FALLBACK_NAMES.get(s.split(".")[0], s.split(".")[0])}
             for s in BIST100_SYMBOLS]
 
@@ -502,7 +501,7 @@ async def get_nasdaq_prices(n=50):
     symbols_with_name = await get_nasdaq_symbols_with_name(n)
     symbols = [item["symbol"] for item in symbols_with_name]
     results = await fetch_nasdaq_prices(symbols)
-    # Market + name bilgisi ile birleştir
+
     final = []
     for item, price_data in zip(symbols_with_name, results):
         final.append({
@@ -537,10 +536,9 @@ async def get_crypto_prices(n=50):
                     price = round(float(data["price"]), 2)
                     if price > 0:
                         return {"symbol": symbol[:-1], "price": price}
-            return None  # price 0 veya hata varsa None döndür
+            return None 
         tasks.append(fetch())
     results = await asyncio.gather(*tasks)
-    # None olanları çıkar
     return [r for r in results if r is not None]
 
 # ----------------------------
@@ -577,9 +575,6 @@ async def symbols_with_name(market: str, n: int = 50):
         return [{"symbol": k, "name": k} for k in metals_dict.keys()]
     return []
 
-# ----------------------------
-# Run
-# ----------------------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
