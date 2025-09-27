@@ -315,7 +315,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final String backendBaseUrl = "http://127.0.0.1:8000";
+  final String backendBaseUrl = "http://192.168.0.104:8000";
   List<Map<String, dynamic>> _followedItems = [];
   bool _loading = false;
   Map<int, bool> _isDeleted = {};
@@ -1203,7 +1203,7 @@ class WatchMarketPage extends StatefulWidget {
 }
 
 class _WatchMarketPageState extends State<WatchMarketPage> {
-  final String backendBaseUrl = "http://127.0.0.1:8000"; // Backend URL
+  final String backendBaseUrl = "http://192.168.0.104:8000"; // Backend URL
   Map<String, List<Map<String, dynamic>>> marketData = {
     "BIST": [],
     "NASDAQ": [],
