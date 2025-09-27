@@ -128,7 +128,11 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator(color: Colors.amber)),
           );
         }
-        return HomePage();
+        if (!snapshot.hasData) {
+          return LoginPage();
+        }else {
+          return HomePage();
+        }
       },
     );
   }
