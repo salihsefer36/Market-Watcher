@@ -9,7 +9,7 @@ class AppLocalizationsTr extends AppLocalizations {
   AppLocalizationsTr([String locale = 'tr']) : super(locale);
 
   @override
-  String get marketWatcher => 'Piyasa Takipçisi';
+  String get marketWatcher => 'Piyasa Gözcüsü';
 
   @override
   String get instantMarketAlarms => 'Anlık piyasa alarmları';

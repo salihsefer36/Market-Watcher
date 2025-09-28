@@ -22,6 +22,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isInit = true;
   bool _notificationsEnabled = true;
   String _currentLanguageCode = 'en';
 
@@ -30,10 +31,18 @@ class _SettingsPageState extends State<SettingsPage> {
     'it': 'Italiano', 'ru': 'Русский', 'zh': '中文 (简体)', 'hi': 'हिन्दी', 'ja': '日本語', 'ar': 'العربية',
   };
 
+  // Bu bayrak, fonksiyonların birden çok kez çalışmasını önler
+
+
   @override
-  void initState() {
-    super.initState();
-    _loadSettings();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_isInit) {
+      final localeProvider = Provider.of<LocaleProvider>(context, listen: false);
+      _currentLanguageCode = localeProvider.locale.languageCode;
+      _loadSettings();
+      _isInit = false;
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -99,7 +108,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // AppLocalizations'ı build metodunun başında tanımlamak daha pratiktir.
     final localizations = AppLocalizations.of(context)!;
 
     return Scaffold(
@@ -235,7 +243,7 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel", style: TextStyle(color: Colors.amber)),
+              child: Text(localizations.cancel, style: TextStyle(color: Colors.amber)),
             )
           ],
         );
@@ -244,13 +252,10 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _onLanguageSelected(String langCode) {
-    // 1. Arayüzü anında güncellemek için Provider'ı çağır
     Provider.of<LocaleProvider>(context, listen: false).setLocale(langCode);
     
-    // 2. Bu sayfanın state'ini güncelle (subtitle'ın değişmesi için)
     setState(() => _currentLanguageCode = langCode);
     
-    // 3. Tercihi backend'e kaydet
     _saveSettings(langCode: langCode);
     
     Navigator.pop(context);

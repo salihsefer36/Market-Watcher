@@ -191,12 +191,17 @@ def update_user_settings(user_uid: str, settings: UserSettings):
     with Session(engine) as session:
         user = session.get(User, user_uid)
         if not user:
-            # If user doesn't exist, create them
-            user = User(uid=user_uid, notifications_enabled=settings.notifications_enabled)
+            # If user doesn't exist, create them with ALL settings
+            user = User(
+                uid=user_uid, 
+                notifications_enabled=settings.notifications_enabled,
+                language_code=settings.language_code 
+            )
             session.add(user)
         else:
             # If user exists, update their settings
             user.notifications_enabled = settings.notifications_enabled
+            user.language_code = settings.language_code
             session.add(user)
         
         session.commit()
