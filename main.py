@@ -80,6 +80,12 @@ class AlertCreate(SQLModel):
     user_token: Optional[str] = None  # FCM Cihaz Token'ı
     user_uid: Optional[str] = None    # Firebase Auth UID'si
 
+class UserSettings(SQLModel):
+    notifications_enabled: bool
+
+class User(UserSettings, table=True):
+    uid: str = Field(primary_key=True) # Firebase Auth UID
+
 # ----------------------------
 # DB ve tablo oluşturma
 # ----------------------------
@@ -87,7 +93,7 @@ def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
 # ----------------------------
-# CRUD (GÜVENLİK VE MANTIK DÜZELTMELERİ YAPILDI)
+# CRUD for Alerts and Settings
 # ----------------------------
 @app.post("/alerts", response_model=Alert)
 async def create_alert(alert_in: AlertCreate):
@@ -169,6 +175,32 @@ async def edit_alert(alert_id: int, alert_in: AlertCreate):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/user/settings/{user_uid}", response_model=UserSettings)
+def get_user_settings(user_uid: str):
+    with Session(engine) as session:
+        user = session.get(User, user_uid)
+        if not user:
+            # If user has no settings saved yet, return default values
+            return UserSettings(notifications_enabled=True)
+        return user
+
+@app.post("/user/settings/{user_uid}", response_model=User)
+def update_user_settings(user_uid: str, settings: UserSettings):
+    with Session(engine) as session:
+        user = session.get(User, user_uid)
+        if not user:
+            # If user doesn't exist, create them
+            user = User(uid=user_uid, notifications_enabled=settings.notifications_enabled)
+            session.add(user)
+        else:
+            # If user exists, update their settings
+            user.notifications_enabled = settings.notifications_enabled
+            session.add(user)
+        
+        session.commit()
+        session.refresh(user)
+        return user
 
 # ----------------------------
 # Push Notification
@@ -239,7 +271,10 @@ async def price_check_loop():
         try:
             with Session(engine) as session:
                 all_alerts = session.exec(select(Alert)).all()
-            
+                # 1. Fetch all user settings at once for efficiency
+                all_users = session.exec(select(User)).all()
+                user_preferences = {user.uid: user for user in all_users}
+
             if not all_alerts:
                 await asyncio.sleep(CHECK_INTERVAL)
                 continue
@@ -253,14 +288,19 @@ async def price_check_loop():
                     prices[symbol] = price
             
             alerts_to_delete_ids = []
-
             for alert in all_alerts:
+                # 2. Check the user's notification preference
+                user_settings = user_preferences.get(alert.user_uid)
+                # Default to True if no settings are found for the user
+                notifications_on = user_settings.notifications_enabled if user_settings else True
+
                 current_price = prices.get(alert.symbol)
                 if current_price is None:
                     continue
 
                 if current_price >= alert.upper_limit or current_price <= alert.lower_limit:
-                    if alert.user_token:
+                    # 3. Only send notification if the setting is enabled
+                    if alert.user_token and notifications_on:
                         direction = "yükseldi" if current_price >= alert.upper_limit else "düştü"
                         title = f"{alert.symbol} Fiyat Alarmı"
                         body = f"{alert.symbol} fiyatı %{alert.percentage} {direction} ve {current_price:.2f} oldu."
