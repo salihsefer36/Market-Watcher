@@ -10,7 +10,7 @@ import 'locale_provider.dart';
 import 'auth_gate.dart';
 
 
-final String backendBaseUrl = "http://127.0.0.1:8000";
+final String backendBaseUrl = "http://192.168.0.112:8000";
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
