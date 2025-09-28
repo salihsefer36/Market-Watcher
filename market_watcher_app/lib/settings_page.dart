@@ -5,12 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-
-// Gerekli import'lar eklendi
 import 'l10n/app_localizations.dart';
 import 'locale_provider.dart';
-
-const String backendBaseUrl = "http://127.0.0.1:8000";
+import 'main.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -30,9 +27,6 @@ class _SettingsPageState extends State<SettingsPage> {
     'en': 'English', 'tr': 'Türkçe', 'de': 'Deutsch', 'fr': 'Français', 'es': 'Español',
     'it': 'Italiano', 'ru': 'Русский', 'zh': '中文 (简体)', 'hi': 'हिन्दी', 'ja': '日本語', 'ar': 'العربية',
   };
-
-  // Bu bayrak, fonksiyonların birden çok kez çalışmasını önler
-
 
   @override
   void didChangeDependencies() {
