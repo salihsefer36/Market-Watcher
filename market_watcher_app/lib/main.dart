@@ -10,6 +10,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter/services.dart';
+import 'settings_page.dart'; // Dosya adınızla eşleştiğinden emin olun
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -124,11 +125,7 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator(color: Colors.amber)),
           );
         }
-        if (snapshot.hasData) {
-          return HomePage();
-        } else {
-          return const LoginPage();
-        } 
+        return HomePage();
       },
     );
   }
@@ -874,10 +871,12 @@ class _HomePageState extends State<HomePage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.amber),
-            onPressed: () async {
-              await _auth.signOut();
-              await GoogleSignIn().signOut();
+            icon: Icon(Icons.settings_outlined, color: Colors.amber, size: 30.sp,),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsPage()),
+              );
             },
           ),
         ],
@@ -897,7 +896,7 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    "Takip Edilen Alarmlar",
+                    "Followed Alarms",
                     style: TextStyle(
                       color: Colors.amber.shade400,
                       fontSize: 20.sp,
@@ -916,7 +915,7 @@ class _HomePageState extends State<HomePage> {
                                     Icon(Icons.notifications_off_outlined, color: Colors.grey, size: 48.sp),
                                     SizedBox(height: 16.h),
                                     Text(
-                                      "Henüz alarm kurulmadı.",
+                                      "The alarm has not been set yet.",
                                       style: TextStyle(color: Colors.grey, fontSize: 16.sp),
                                     ),
                                   ],
@@ -986,7 +985,7 @@ class _HomePageState extends State<HomePage> {
               child: ElevatedButton.icon(
                 icon: Icon(Icons.add_alert_rounded ,size: 28.sp,),
                 label: Text(
-                  'Alarm Kur',
+                  'Set Alarm',
                   style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -1005,7 +1004,7 @@ class _HomePageState extends State<HomePage> {
               child: ElevatedButton.icon(
                 icon: Icon(Icons.bar_chart_rounded, size: 28.sp,),
                 label: Text(
-                  'Piyasaları İzle',
+                  'Watch Market',
                   style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -1094,7 +1093,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
       print("Error fetching market data: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Piyasa verileri yüklenemedi."))
+          const SnackBar(content: Text("No Market Data Found") ),
         );
       }
     } finally {
@@ -1168,7 +1167,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
         // The List
         Expanded(
           child: data.isEmpty
-              ? Center(child: Text("Veri bulunamadı", style: TextStyle(color: Colors.grey, fontSize: 16.sp)))
+              ? Center(child: Text("No Data", style: TextStyle(color: Colors.grey, fontSize: 16.sp)))
               : RefreshIndicator(
                   onRefresh: fetchAllDataEfficiently,
                   color: Colors.amber,
