@@ -1,12 +1,16 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-// Your backend URL (change with your own IP for local testing)
-const String backendBaseUrl = "http://192.168.0.104:8000";
+// Gerekli import'lar eklendi
+import 'l10n/app_localizations.dart';
+import 'locale_provider.dart';
+
+const String backendBaseUrl = "http://127.0.0.1:8000";
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -16,24 +20,30 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool _notificationsEnabled = true; // Default value
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _notificationsEnabled = true;
+  String _currentLanguageCode = 'en';
+
+  final Map<String, String> _supportedLanguages = {
+    'en': 'English', 'tr': 'Türkçe', 'de': 'Deutsch', 'fr': 'Français', 'es': 'Español',
+    'it': 'Italiano', 'ru': 'Русский', 'zh': '中文 (简体)', 'hi': 'हिन्दी', 'ja': '日本語', 'ar': 'العربية',
+  };
 
   @override
   void initState() {
     super.initState();
-    _loadNotificationSettings();
+    _loadSettings();
   }
 
-  Future<void> _loadNotificationSettings() async {
+  Future<void> _loadSettings() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) {
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
-      
+
       final uri = Uri.parse("$backendBaseUrl/user/settings/$uid");
       final response = await http.get(uri);
 
@@ -41,7 +51,10 @@ class _SettingsPageState extends State<SettingsPage> {
         final settings = jsonDecode(response.body);
         setState(() {
           _notificationsEnabled = settings['notifications_enabled'];
+          _currentLanguageCode = settings['language_code'] ?? 'en';
         });
+        // Uygulamanın genel dilini başlangıçta ayarla
+        Provider.of<LocaleProvider>(context, listen: false).setLocale(_currentLanguageCode);
       }
     } catch (e) {
       print("Failed to load settings: $e");
@@ -52,17 +65,19 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _saveNotificationSettings(bool newValue) async {
+  Future<void> _saveSettings({bool? notifications, String? langCode}) async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
-
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) return;
 
       final uri = Uri.parse("$backendBaseUrl/user/settings/$uid");
-      final body = jsonEncode({'notifications_enabled': newValue});
-      
+      final body = jsonEncode({
+        'notifications_enabled': notifications ?? _notificationsEnabled,
+        'language_code': langCode ?? _currentLanguageCode
+      });
+
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
@@ -70,10 +85,8 @@ class _SettingsPageState extends State<SettingsPage> {
       );
 
       if (response.statusCode != 200 && mounted) {
-        setState(() => _notificationsEnabled = !newValue);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to save setting. Please try again.'))
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to save settings.')));
+        await _loadSettings();
       }
     } catch (e) {
       print("Failed to save settings: $e");
@@ -86,12 +99,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // AppLocalizations'ı build metodunun başında tanımlamak daha pratiktir.
+    final localizations = AppLocalizations.of(context)!;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.black,
-        title: Text('Settings', style: TextStyle(color: Colors.white, fontSize: 20.sp)),
+        title: Text(localizations.settings, style: TextStyle(color: Colors.white, fontSize: 20.sp)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.amber),
           onPressed: () => Navigator.pop(context),
@@ -102,18 +118,19 @@ class _SettingsPageState extends State<SettingsPage> {
           : ListView(
               padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
               children: [
-                _buildSectionHeader('General'),
+                _buildSectionHeader(localizations.general),
                 _buildSettingsCard(
                   children: [
-                    _buildLanguageTile(),
-                    _buildNotificationsTile(),
+                    _buildLanguageTile(localizations),
+                    const Divider(color: Colors.white12, height: 1, indent: 56),
+                    _buildNotificationsTile(localizations),
                   ],
                 ),
                 SizedBox(height: 30.h),
-                _buildSectionHeader('Account'),
+                _buildSectionHeader(localizations.account),
                 _buildSettingsCard(
                   children: [
-                    _buildSignOutTile(),
+                    _buildSignOutTile(localizations),
                   ],
                 ),
                 SizedBox(height: 30.h),
@@ -153,43 +170,89 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildLanguageTile() {
+  Widget _buildLanguageTile(AppLocalizations localizations) {
     return ListTile(
       leading: const Icon(Icons.language_outlined, color: Colors.amber),
-      title: const Text('Application Language', style: TextStyle(color: Colors.white)),
-      subtitle: Text('English', style: TextStyle(color: Colors.grey.shade400)),
+      title: Text(localizations.applicationLanguage, style: const TextStyle(color: Colors.white)),
+      subtitle: Text(
+        _supportedLanguages[_currentLanguageCode] ?? 'English',
+        style: TextStyle(color: Colors.grey.shade400),
+      ),
       trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Language change feature will be added soon.')),
-        );
-      },
+      onTap: () => _showLanguageDialog(localizations),
     );
   }
 
-  Widget _buildNotificationsTile() {
+  Widget _buildNotificationsTile(AppLocalizations localizations) {
     return SwitchListTile.adaptive(
       secondary: const Icon(Icons.notifications_active_outlined, color: Colors.amber),
-      title: const Text('Notifications', style: TextStyle(color: Colors.white)),
-      subtitle: Text('For all alarms', style: TextStyle(color: Colors.grey.shade400)),
+      title: Text(localizations.notifications, style: const TextStyle(color: Colors.white)),
+      subtitle: Text(localizations.forAllAlarms, style: TextStyle(color: Colors.grey.shade400)),
       value: _notificationsEnabled,
       activeColor: Colors.amber,
       onChanged: _isSaving ? null : (bool value) {
         setState(() => _notificationsEnabled = value);
-        _saveNotificationSettings(value);
+        _saveSettings(notifications: value);
       },
     );
   }
   
-  Widget _buildSignOutTile() {
+  Widget _buildSignOutTile(AppLocalizations localizations) {
     return ListTile(
       leading: Icon(Icons.logout, color: Colors.red.shade400),
-      title: Text('Sign Out', style: TextStyle(color: Colors.red.shade400)),
+      title: Text(localizations.signOut, style: TextStyle(color: Colors.red.shade400)),
       onTap: () async {
         Navigator.pop(context);
         await FirebaseAuth.instance.signOut();
         await GoogleSignIn().signOut();
       },
     );
+  }
+
+  void _showLanguageDialog(AppLocalizations localizations) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey.shade900,
+          title: Text(localizations.applicationLanguage, style: const TextStyle(color: Colors.white)),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: _supportedLanguages.entries.map((entry) {
+                  final isSelected = _currentLanguageCode == entry.key;
+                  return ListTile(
+                    title: Text(entry.value, style: TextStyle(color: isSelected ? Colors.amber : Colors.white)),
+                    trailing: isSelected ? const Icon(Icons.check, color: Colors.amber) : null,
+                    onTap: () => _onLanguageSelected(entry.key),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel", style: TextStyle(color: Colors.amber)),
+            )
+          ],
+        );
+      },
+    );
+  }
+
+  void _onLanguageSelected(String langCode) {
+    // 1. Arayüzü anında güncellemek için Provider'ı çağır
+    Provider.of<LocaleProvider>(context, listen: false).setLocale(langCode);
+    
+    // 2. Bu sayfanın state'ini güncelle (subtitle'ın değişmesi için)
+    setState(() => _currentLanguageCode = langCode);
+    
+    // 3. Tercihi backend'e kaydet
+    _saveSettings(langCode: langCode);
+    
+    Navigator.pop(context);
   }
 }

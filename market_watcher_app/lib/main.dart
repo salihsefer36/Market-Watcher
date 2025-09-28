@@ -11,6 +11,9 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter/services.dart';
 import 'settings_page.dart';
+import 'package:provider/provider.dart'; 
+import 'l10n/app_localizations.dart';
+import 'locale_provider.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -31,13 +34,16 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   runApp(
-    ScreenUtilInit(
-      designSize: const Size(390, 844), 
-      minTextAdapt: true, 
-      splitScreenMode: true, 
-      builder: (context, child) {
-        return const MyApp();
-      },
+    ChangeNotifierProvider(
+      create: (context) => LocaleProvider(),
+      child: ScreenUtilInit(
+        designSize: const Size(390, 844),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (context, child) {
+          return const MyApp();
+        },
+      ),
     ),
   );
 }
@@ -47,8 +53,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localeProvider = Provider.of<LocaleProvider>(context);
+ 
     return MaterialApp(
-      title: 'Market Watcher',
+      // --- BU ÜÇ SATIR HATAYI ÇÖZECEKTİR ---
+      locale: localeProvider.locale, // Mevcut aktif dili ayarlar
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      // -------------------------------------
+
+      onGenerateTitle: (context) => AppLocalizations.of(context)!.marketWatcher,
+
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.black,
@@ -136,6 +151,7 @@ class LoginPage extends StatelessWidget {
 
   // LoginPage içinde
   Future<void> signInWithGoogle(BuildContext context) async {
+     final localizations = AppLocalizations.of(context)!;
     try {
       if (kIsWeb) {
         GoogleAuthProvider authProvider = GoogleAuthProvider();
@@ -158,7 +174,7 @@ class LoginPage extends StatelessWidget {
       print('Google Sign-In hatası: $e');
       // 3. Her türlü hata burada yakalanır ve kullanıcıya gösterilir.
       if (context.mounted) {
-        _showErrorSnackBar(context, 'Bir hata oluştu. Lütfen tekrar deneyin.');
+        _showErrorSnackBar(context, localizations.couldNotGetNotificationToken);
       }
     }
   }
@@ -192,6 +208,7 @@ class LoginPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
     return Scaffold(
       body: Container(
         // 1. Arka Plana Derinlik Katıyoruz
@@ -224,25 +241,9 @@ class LoginPage extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: 16.h),
-                Text(
-                  'Market Watcher',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 40.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 1.2,
-                  ),
-                ),
+                Text(localizations.marketWatcher, textAlign: TextAlign.center, style: TextStyle(fontSize: 40.sp, fontWeight: FontWeight.bold, color: Colors.white)),
                 SizedBox(height: 8.h),
-                Text(
-                  'Instant market alerts',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    color: Colors.grey.shade400,
-                  ),
-                ),
+                Text(localizations.instantMarketAlarms, textAlign: TextAlign.center, style: TextStyle(fontSize: 16.sp, color: Colors.grey.shade400)),
 
                 const Spacer(flex: 3),
 
@@ -279,14 +280,7 @@ class LoginPage extends StatelessWidget {
                               height: 24.h,
                             ),
                             SizedBox(width: 12.w),
-                            Text(
-                              'Sign in with Google',
-                              style: TextStyle(
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
+                            Text(localizations.continueWithGoogle, style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.black)),
                           ],
                         ),
                       ),
@@ -310,7 +304,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final String backendBaseUrl = "http://192.168.0.104:8000";
+  final String backendBaseUrl = "http://127.0.01:8000";
   List<Map<String, dynamic>> _followedItems = [];
   bool _loading = false;
 
@@ -358,19 +352,20 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _createOrEditAlarm(String market,String symbol,double percentage, {int? editId,}) async {
+    final localizations = AppLocalizations.of(context)!;
     try {
       // 1. Firebase Auth'dan UID'yi al
       final userUid = _auth.currentUser?.uid;
       if (userUid == null) {
         // Kullanıcı giriş yapmamışsa işlem yapma
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please sign in first')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(localizations.pleaseSignInFirst)));
         return;
       }
 
       // 2. Firebase Messaging'den FCM Cihaz Token'ını al
       final fcmToken = await FirebaseMessaging.instance.getToken();
       if (fcmToken == null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not get notification token. Please try again.')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(localizations.couldNotGetNotificationToken)));
         return;
       }
 
@@ -433,7 +428,7 @@ class _HomePageState extends State<HomePage> {
                   SizedBox(width: 12.w),
                   Expanded(
                     child: Text(
-                      'Alarm already exists for $displaySymbol in $market',
+                      localizations.alarmAlreadyExists(displaySymbol, market),
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -486,7 +481,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void _openSetAlarmDialog(BuildContext context) {
+  void _openSetAlarmDialog(BuildContext context, AppLocalizations localizations) {
     String? selectedMarket;
     String? selectedSymbol;
     double? selectedPercentage;
@@ -494,9 +489,9 @@ class _HomePageState extends State<HomePage> {
     final markets = ['BIST', 'NASDAQ', 'CRYPTO', 'METALS'];
     final percentages = [1, 2, 5, 10];
     List<String> symbolsForMarket = [];
-    
-    // Sembollerin yüklenip yüklenmediğini takip etmek için yeni bir state değişkeni
+
     bool _isLoadingSymbols = false;
+    final localizations = AppLocalizations.of(context)!;
 
     Future<List<String>> _fetchSymbolsForMarket(String market) async {
       try {
@@ -509,7 +504,7 @@ class _HomePageState extends State<HomePage> {
       } catch (e) {
         print("Error fetching symbols for $market: $e");
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("$market sembolleri yüklenemedi.")));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(localizations.marketSymbolsCouldNotBeLoaded(market))));
         }
       }
       return [];
@@ -520,12 +515,11 @@ class _HomePageState extends State<HomePage> {
       builder: (context) {
         return Dialog(
           backgroundColor: Colors.transparent,
-          insetPadding: EdgeInsets.all(24.w), // Kenarlardan boşluk
+          insetPadding: EdgeInsets.all(24.w), 
           child: StatefulBuilder(
             builder: (context, setState) {
-              return SingleChildScrollView( // Küçük ekranlarda taşmayı önler
+              return SingleChildScrollView( 
                 child: Container(
-                  // Sabit genişlik yerine içeriğe göre boyutlanmasını sağlıyoruz
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -540,7 +534,7 @@ class _HomePageState extends State<HomePage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Set Alarm',
+                        localizations.setAlarm,
                         style: TextStyle(
                           color: Colors.amber.shade400,
                           fontSize: 24.sp,
@@ -549,7 +543,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                       SizedBox(height: 24.h),
                       
-                      // --- Market Dropdown ---
                       _buildDropdownContainer(
                         icon: Icons.store_mall_directory_outlined,
                         child: DropdownButton<String>(
@@ -557,7 +550,7 @@ class _HomePageState extends State<HomePage> {
                           isExpanded: true,
                           underline: const SizedBox(),
                           value: selectedMarket,
-                          hint: const Text('Select Market', style: TextStyle(color: Colors.grey)),
+                          hint: Text(localizations.selectMarket, style: TextStyle(color: Colors.grey)),
                           items: markets.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(color: Colors.white)))).toList(),
                           onChanged: (value) async {
                             if (value == null) return;
@@ -579,10 +572,9 @@ class _HomePageState extends State<HomePage> {
                       ),
                       SizedBox(height: 16.h),
                       
-                      // --- Symbol Dropdown veya Yükleme Animasyonu ---
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
-                        height: 50.h, // Sabit yükseklik vererek "zıplamayı" önlüyoruz
+                        height: 50.h, 
                         child: _isLoadingSymbols
                             ? Center(child: CircularProgressIndicator(color: Colors.amber.shade600, strokeWidth: 2.5))
                             : (selectedMarket != null
@@ -592,7 +584,7 @@ class _HomePageState extends State<HomePage> {
                                       dropdownColor: Colors.grey.shade800,
                                       isExpanded: true,
                                       underline: const SizedBox(),
-                                      hint: const Text('Select Symbol', style: TextStyle(color: Colors.grey)),
+                                      hint: Text(localizations.selectSymbol, style: TextStyle(color: Colors.grey)),
                                       value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
                                       items: symbolsForMarket.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white)))).toList(),
                                       onChanged: (value) => setState(() => selectedSymbol = value),
@@ -609,7 +601,7 @@ class _HomePageState extends State<HomePage> {
                           dropdownColor: Colors.grey.shade800,
                           isExpanded: true,
                           underline: const SizedBox(),
-                          hint: const Text('Select Change %', style: TextStyle(color: Colors.grey)),
+                          hint: Text(localizations.selectChangePercent, style: TextStyle(color: Colors.grey)),
                           value: selectedPercentage,
                           items: percentages.map((p) => DropdownMenuItem(value: p.toDouble(), child: Text('$p%', style: const TextStyle(color: Colors.white)))).toList(),
                           onChanged: (value) => setState(() => selectedPercentage = value),
@@ -623,7 +615,7 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                            child: Text(localizations.cancel, style: TextStyle(color: Colors.grey)),
                           ),
                           SizedBox(width: 12.w),
                           ElevatedButton(
@@ -642,7 +634,7 @@ class _HomePageState extends State<HomePage> {
                                     Navigator.pop(context);
                                   }
                                 : null, // Buton, tüm seçimler yapılana kadar pasif kalır
-                            child: const Text('Set Alarm'),
+                            child: Text(localizations.setAlarm),
                           ),
                         ],
                       ),
@@ -657,7 +649,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // Dropdown'ları sarmalamak için yardımcı bir metot
   Widget _buildDropdownContainer({required IconData icon, required Widget child}) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -676,7 +667,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openEditAlarmDialog(BuildContext context, Map<String, dynamic> alert) {
+  void _openEditAlarmDialog(BuildContext context, Map<String, dynamic> alert, AppLocalizations localizations) {
     String? selectedMarket = alert['market'];
     String? selectedSymbol = alert['symbol'];
     if (selectedMarket == 'CRYPTO' && selectedSymbol != null && selectedSymbol.endsWith('USDT')) {
@@ -739,7 +730,7 @@ class _HomePageState extends State<HomePage> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Edit Alarm',
+                        localizations.editAlarm,
                         style: TextStyle(
                           color: Colors.amber.shade400,
                           fontSize: 24.sp,
@@ -786,7 +777,7 @@ class _HomePageState extends State<HomePage> {
                                   isExpanded: true,
                                   underline: const SizedBox(),
                                   value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
-                                  hint: const Text('Select Symbol', style: TextStyle(color: Colors.grey)),
+                                  hint: Text(localizations.selectSymbol, style: TextStyle(color: Colors.grey)),
                                   items: symbolsForMarket.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white)))).toList(),
                                   onChanged: (value) => setState(() => selectedSymbol = value),
                                 ),
@@ -801,7 +792,7 @@ class _HomePageState extends State<HomePage> {
                           isExpanded: true,
                           underline: const SizedBox(),
                           value: selectedPercentage,
-                          hint: const Text('Select Change %', style: TextStyle(color: Colors.grey)),
+                          hint: Text(localizations.selectChangePercent, style: TextStyle(color: Colors.grey)),
                           items: percentages.map((p) => DropdownMenuItem(value: p.toDouble(), child: Text('$p%', style: const TextStyle(color: Colors.white)))).toList(),
                           onChanged: (value) => setState(() => selectedPercentage = value),
                         ),
@@ -813,7 +804,7 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                            child: Text(localizations.cancel, style: TextStyle(color: Colors.grey)),
                           ),
                           SizedBox(width: 12.w),
                           ElevatedButton(
@@ -832,7 +823,7 @@ class _HomePageState extends State<HomePage> {
                                 Navigator.pop(context);
                               }
                             },
-                            child: const Text('Save Changes'),
+                            child: Text(localizations.save),
                           ),
                         ],
                       ),
@@ -856,13 +847,15 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
+    final localizations = AppLocalizations.of(context)!;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.black,
         title: Text(
-          user?.displayName ?? 'Market Watcher',
+          user?.displayName ?? localizations.marketWatcher,
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -896,7 +889,7 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
-                    "Followed Alarms",
+                    localizations.followedAlarms,
                     style: TextStyle(
                       color: Colors.amber.shade400,
                       fontSize: 20.sp,
@@ -915,7 +908,7 @@ class _HomePageState extends State<HomePage> {
                                     Icon(Icons.notifications_off_outlined, color: Colors.grey, size: 48.sp),
                                     SizedBox(height: 16.h),
                                     Text(
-                                      "The alarm has not been set yet.",
+                                      localizations.noAlarmsYet,
                                       style: TextStyle(color: Colors.grey, fontSize: 16.sp),
                                     ),
                                   ],
@@ -948,7 +941,7 @@ class _HomePageState extends State<HomePage> {
                                             backgroundColor: Colors.red.shade700,
                                             foregroundColor: Colors.white,
                                             icon: Icons.delete_forever,
-                                            label: 'Sil',
+                                            label: localizations.delete,
                                             borderRadius: BorderRadius.circular(12.r),
                                           ),
                                         ],
@@ -962,7 +955,7 @@ class _HomePageState extends State<HomePage> {
                                         title: Text(symbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.sp)),
                                         subtitle: Text(item['market'] ?? '', style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp)),
                                         trailing: Text('%${item['percentage']}', style: TextStyle(color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.w500)),
-                                        onTap: () => _openEditAlarmDialog(context, item),
+                                        onTap: () => _openEditAlarmDialog(context, item, localizations),
                                       ),
                                     );
                                   },
@@ -973,19 +966,15 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
 
-            // 1. SPACER KALDIRILDI: Butonlar artık panelin hemen altına gelecek.
-            // Panel ile butonlar arasında boşluk bırakmak için SizedBox kullanıyoruz.
             SizedBox(height: 36.h),
 
-            // 2. BUTON SIRASI DEĞİŞTİRİLDİ: "Alarm Kur" artık üstte.
             SizedBox(
               width: double.infinity,
-              // 3. BUTON BOYUTU ARTIRILDI: Yükseklik 55.h olarak ayarlandı.
               height: 55.h,
               child: ElevatedButton.icon(
                 icon: Icon(Icons.add_alert_rounded ,size: 28.sp,),
                 label: Text(
-                  'Set Alarm',
+                  localizations.setAlarm,
                   style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -993,7 +982,7 @@ class _HomePageState extends State<HomePage> {
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                 ),
-                onPressed: () => _openSetAlarmDialog(context),
+                onPressed: () => _openSetAlarmDialog(context, localizations),
               ),
             ),
             SizedBox(height: 18.h),
@@ -1004,7 +993,7 @@ class _HomePageState extends State<HomePage> {
               child: ElevatedButton.icon(
                 icon: Icon(Icons.bar_chart_rounded, size: 28.sp,),
                 label: Text(
-                  'Watch Market',
+                  localizations.watchMarket,
                   style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -1018,9 +1007,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            
-            // Butonların en alta itilmesini istemediğimiz için Spacer'ı kaldırdık.
-            // const Spacer(),
           ],
         ),
       ),
@@ -1034,11 +1020,8 @@ class WatchMarketPage extends StatefulWidget {
   State<WatchMarketPage> createState() => _WatchMarketPageState();
 }
 
-// 1. TickerProviderStateMixin is added for TabBar animations.
 class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProviderStateMixin {
-  // Use your local IP for testing on a physical device.
-  // For the Android Emulator, use "http://10.0.2.2:8000".
-  final String backendBaseUrl = "http://192.168.0.104:8000";
+  final String backendBaseUrl = "http://127.0.0.1:8000";
   
   Map<String, List<Map<String, dynamic>>> marketData = {
     "BIST": [],
@@ -1067,6 +1050,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
   
   // --- A MORE EFFICIENT DATA FETCHING METHOD ---
   Future<void> fetchAllDataEfficiently() async {
+    final localizations = AppLocalizations.of(context)!;
     if (!mounted) return;
     setState(() => loading = true);
     
@@ -1093,7 +1077,8 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
       print("Error fetching market data: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No Market Data Found") ),
+          SnackBar(content: Text(localizations.noDataFound),
+          ),
         );
       }
     } finally {
@@ -1105,6 +1090,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -1112,7 +1098,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Watch Market 📈',
+          localizations.watchMarketChart,
           style: TextStyle(
             color: Colors.amber,
             fontWeight: FontWeight.bold,
@@ -1149,6 +1135,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
 
   // 5. This new helper method builds the content for each tab.
   Widget _buildMarketList(String market, List<Map<String, dynamic>> data) {
+    final localizations = AppLocalizations.of(context)!;
     return Column(
       children: [
         // Column Headers
@@ -1156,9 +1143,9 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           child: Row(
             children: [
-              Expanded(flex: 3, child: Text("Sembol", style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
-              Expanded(flex: 5, child: Text("İsim", style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
-              Expanded(flex: 3, child: Align(alignment: Alignment.centerRight, child: Text("Fiyat", style: TextStyle(color: Colors.grey, fontSize: 12.sp)))),
+              Expanded(flex: 3, child: Text(localizations.symbol, style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
+              Expanded(flex: 5, child: Text(localizations.name, style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
+              Expanded(flex: 3, child: Align(alignment: Alignment.centerRight, child: Text(localizations.price, style: TextStyle(color: Colors.grey, fontSize: 12.sp)))),
             ],
           ),
         ),
@@ -1167,7 +1154,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
         // The List
         Expanded(
           child: data.isEmpty
-              ? Center(child: Text("No Data", style: TextStyle(color: Colors.grey, fontSize: 16.sp)))
+              ? Center(child: Text(localizations.noData, style: TextStyle(color: Colors.grey, fontSize: 16.sp)))
               : RefreshIndicator(
                   onRefresh: fetchAllDataEfficiently,
                   color: Colors.amber,

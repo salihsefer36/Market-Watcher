@@ -82,9 +82,10 @@ class AlertCreate(SQLModel):
 
 class UserSettings(SQLModel):
     notifications_enabled: bool
+    language_code: str = Field(default="en") # Default language is english (en)
 
 class User(UserSettings, table=True):
-    uid: str = Field(primary_key=True) # Firebase Auth UID
+    uid: str = Field(primary_key=True)
 
 # ----------------------------
 # DB ve tablo oluşturma
@@ -264,6 +265,77 @@ async def fetch_price(symbol: str):
 
         return None
 # ----------------------------
+# --- YENİ ÇEVİRİ SÖZLÜĞÜ ---
+# Bu yapıyı dosyanın üst kısımlarına veya price_check_loop'un hemen öncesine ekleyebilirsiniz.
+NOTIFICATION_TEMPLATES = {
+    "en": {
+        "title": "{symbol} Price Alert",
+        "body": "The price of {symbol} has {direction} by {percentage}% and is now {price:.2f}.",
+        "increased": "increased",
+        "decreased": "decreased"
+    },
+    "tr": {
+        "title": "{symbol} Fiyat Alarmı",
+        "body": "{symbol} fiyatı %{percentage} {direction} ve {price:.2f} oldu.",
+        "increased": "yükseldi",
+        "decreased": "düştü"
+    },
+    "de": {
+        "title": "{symbol} Preisalarm",
+        "body": "Der Preis von {symbol} ist um {percentage}% {direction} und beträgt jetzt {price:.2f}.",
+        "increased": "gestiegen",
+        "decreased": "gefallen"
+    },
+    "fr": {
+        "title": "Alerte de Prix {symbol}",
+        "body": "Le prix de {symbol} a {direction} de {percentage}% et est maintenant de {price:.2f}.",
+        "increased": "augmenté",
+        "decreased": "baissé"
+    },
+    "es": {
+        "title": "Alerta de Precio de {symbol}",
+        "body": "El precio de {symbol} ha {direction} un {percentage}% y ahora es de {price:.2f}.",
+        "increased": "subido",
+        "decreased": "bajado"
+    },
+    "it": {
+        "title": "Allarme Prezzo {symbol}",
+        "body": "Il prezzo di {symbol} è {direction} del {percentage}% ed è ora di {price:.2f}.",
+        "increased": "aumentato",
+        "decreased": "diminuito"
+    },
+    "ru": {
+        "title": "Ценовое Оповещение: {symbol}",
+        "body": "Цена на {symbol} {direction} на {percentage}% и теперь составляет {price:.2f}.",
+        "increased": "выросла",
+        "decreased": "упала"
+    },
+    "zh": {
+        "title": "{symbol} 价格提醒",
+        "body": "{symbol} 的价格已{direction}{percentage}%，现为 {price:.2f}。",
+        "increased": "上涨",
+        "decreased": "下跌"
+    },
+    "hi": {
+        "title": "{symbol} मूल्य चेतावनी",
+        "body": "{symbol} की कीमत {percentage}% {direction} है और अब {price:.2f} है।",
+        "increased": "बढ़ गई",
+        "decreased": "घट गई"
+    },
+    "ja": {
+        "title": "{symbol} 価格アラート",
+        "body": "{symbol}の価格が{percentage}%{direction}し、現在{price:.2f}です。",
+        "increased": "上昇",
+        "decreased": "下落"
+    },
+    "ar": {
+        "title": "تنبيه سعر {symbol}",
+        "body": "لقد {direction} سعر {symbol} بنسبة {percentage}% وهو الآن {price:.2f}.",
+        "increased": "ارتفع",
+        "decreased": "انخفض"
+    }
+}
+# ----------------------------
 # Price Check Loop 
 # ----------------------------
 async def price_check_loop():
@@ -271,7 +343,6 @@ async def price_check_loop():
         try:
             with Session(engine) as session:
                 all_alerts = session.exec(select(Alert)).all()
-                # 1. Fetch all user settings at once for efficiency
                 all_users = session.exec(select(User)).all()
                 user_preferences = {user.uid: user for user in all_users}
 
@@ -289,21 +360,33 @@ async def price_check_loop():
             
             alerts_to_delete_ids = []
             for alert in all_alerts:
-                # 2. Check the user's notification preference
                 user_settings = user_preferences.get(alert.user_uid)
-                # Default to True if no settings are found for the user
                 notifications_on = user_settings.notifications_enabled if user_settings else True
+                
+                # 1. Kullanıcının dilini al, eğer ayarı yoksa veya dil desteklenmiyorsa varsayılan olarak 'en' kullan.
+                lang_code = user_settings.language_code if user_settings and user_settings.language_code in NOTIFICATION_TEMPLATES else "en"
+                
+                # 2. Seçilen dile göre metin şablonunu al.
+                template = NOTIFICATION_TEMPLATES[lang_code]
 
                 current_price = prices.get(alert.symbol)
                 if current_price is None:
                     continue
 
                 if current_price >= alert.upper_limit or current_price <= alert.lower_limit:
-                    # 3. Only send notification if the setting is enabled
                     if alert.user_token and notifications_on:
-                        direction = "yükseldi" if current_price >= alert.upper_limit else "düştü"
-                        title = f"{alert.symbol} Fiyat Alarmı"
-                        body = f"{alert.symbol} fiyatı %{alert.percentage} {direction} ve {current_price:.2f} oldu."
+                        # 3. Yön (arttı/azaldı) metnini de şablondan al.
+                        is_increase = current_price >= alert.upper_limit
+                        direction_text = template["increased"] if is_increase else template["decreased"]
+                        
+                        # 4. Başlık ve gövde metinlerini seçilen dilde formatla.
+                        title = template["title"].format(symbol=alert.symbol)
+                        body = template["body"].format(
+                            symbol=alert.symbol,
+                            percentage=alert.percentage,
+                            direction=direction_text,
+                            price=current_price
+                        )
                         send_push_notification(token=alert.user_token, title=title, body=body)
                     
                     alerts_to_delete_ids.append(alert.id)
