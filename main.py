@@ -100,7 +100,7 @@ def create_db_and_tables():
 async def create_alert(alert_in: AlertCreate):
     try:
         current_price_raw = await fetch_price(alert_in.symbol)
-        if current_price is None:
+        if current_price_raw is None:
             raise HTTPException(status_code=400, detail=f"Price not found for symbol: {alert_in.symbol}")
 
         current_price = float(current_price_raw)
