@@ -323,6 +323,8 @@ class _HomePageState extends State<HomePage> {
                                     String formattedSymbol = selectedSymbol!;
                                     if (selectedMarket == 'CRYPTO') {
                                       formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
+                                    }else if (selectedMarket == 'METALS') {
+                                      formattedSymbol = selectedSymbol!.toUpperCase();
                                     }
                                     Navigator.pop(dialogContext); // Close dialog before async operation
                                     await _createOrEditAlarm(selectedMarket!, formattedSymbol, selectedPercentage!);
@@ -503,6 +505,8 @@ class _HomePageState extends State<HomePage> {
                                 String formattedSymbol = selectedSymbol!;
                                 if (selectedMarket == 'CRYPTO') {
                                   formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
+                                }else if (selectedMarket == 'METALS') {
+                                  formattedSymbol = selectedSymbol!.toUpperCase();
                                 }
                                 await _createOrEditAlarm(
                                   selectedMarket!,
