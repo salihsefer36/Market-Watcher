@@ -99,11 +99,13 @@ def create_db_and_tables():
 @app.post("/alerts", response_model=Alert)
 async def create_alert(alert_in: AlertCreate):
     try:
-        current_price = await fetch_price(alert_in.symbol)
+        current_price_raw = await fetch_price(alert_in.symbol)
         if current_price is None:
             raise HTTPException(status_code=400, detail=f"Price not found for symbol: {alert_in.symbol}")
 
+        current_price = float(current_price_raw)
         perc = float(alert_in.percentage)
+
         upper = current_price * (1 + perc / 100)
         lower = current_price * (1 - perc / 100)
 
