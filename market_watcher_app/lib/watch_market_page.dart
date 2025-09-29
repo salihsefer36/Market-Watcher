@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -36,11 +37,29 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
     super.dispose();
   }
 
-  Future<void> fetchAllDataEfficiently() async {
+// watch_market_page.dart içinde _WatchMarketPageState sınıfı
+
+Future<void> fetchAllDataEfficiently() async {
     if (!mounted) return;
 
     final localizations = AppLocalizations.of(context)!;
-
+    final userUid = FirebaseAuth.instance.currentUser?.uid;
+    
+    // **KRİTİK KONTROL**: Backend'iniz artık UID'yi zorunlu kılıyor.
+    if (userUid == null) {
+        // Eğer kullanıcı girişi yapılmamışsa, API'yi çağırmadan No Data Found göster.
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(localizations.pleaseSignInFirst)));
+            setState(() => loading = false);
+        }
+        // Boş bir veri setiyle geri dönmek yerine, burada hata vermeden durmak en sağlıklısı.
+        return; 
+    }
+    
+    // API URL'sini hazırla (user_uid zorunlu olduğu için direkt eklenir)
+    String apiUrl = "$backendBaseUrl/prices?user_uid=$userUid";
+    
+    // Yükleniyor durumunu güncelle
     if (!loading) { 
       setState(() => loading = true);
     }
@@ -48,9 +67,11 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
     marketData.forEach((key, value) => value.clear());
 
     try {
-      final res = await http.get(Uri.parse("$backendBaseUrl/prices")).timeout(const Duration(seconds: 10)); 
+      // GÜNCELLENMİŞ API İSTEĞİ
+      final res = await http.get(Uri.parse(apiUrl)).timeout(const Duration(seconds: 10));
       
       if (res.statusCode == 200) {
+        // ... (Veri işleme kısmı aynı kalır)
         if (!mounted) return;
         final List<dynamic> allData = jsonDecode(res.body);
         final newMarketData = Map<String, List<Map<String, dynamic>>>.from(marketData);
@@ -78,7 +99,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
         setState(() => loading = false);
       }
     }
-  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +174,33 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
                     itemBuilder: (context, index) {
                       final item = data[index];
                       final priceValue = item['price'] as num;
-                      String currencySymbol = (market == "BIST" || market == "METALS") ? "₺" : "\$";
+                      
+                      String currencySymbol;
+                      
+                      // 1. Dili al
+                      final localeCode = Localizations.localeOf(context).languageCode;
+                      
+                      if (market == "BIST") {
+                        currencySymbol = "₺"; 
+                      } else if (market == "METALS") {
+                        switch (localeCode.toLowerCase()) {
+                            case 'tr': currencySymbol = '₺'; break;
+                            case 'de':
+                            case 'fr':
+                            case 'it':
+                            case 'es': currencySymbol = '€'; break; // Euro for European languages
+                            case 'ru': currencySymbol = '₽'; break; // Russian Ruble
+                            case 'ja': currencySymbol = '¥'; break; // Japanese Yen
+                            case 'zh': currencySymbol = '¥'; break; // Chinese Yuan
+                            case 'hi': currencySymbol = '₹'; break; // Indian Rupi
+                            case 'ar': currencySymbol = '﷼'; break; // Riyal (Arabic)
+                            default: currencySymbol = '\$'; break; // For others USD
+                        }
+                      } else {
+                        // NASDAQ and CRYPTO USD
+                        currencySymbol = "\$"; 
+                      }
+                      
                       String displayPrice = "${priceValue.toStringAsFixed(2)}$currencySymbol";
                       String displayName;
 

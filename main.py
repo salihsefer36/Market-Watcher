@@ -424,31 +424,85 @@ async def on_shutdown():
         except asyncio.CancelledError:
             pass
 
+LANGUAGE_CURRENCY_MAP = {
+    'tr': 'TRY',
+    'de': 'EUR',
+    'fr': 'EUR',
+    'es': 'EUR',
+    'it': 'EUR',
+    'ru': 'RUB',
+    'hi': 'INR', 
+    'zh': 'CNY', 
+    'ja': 'JPY', 
+    'ar': 'SAR',
+    'en': 'USD', 
+}
+
+CURRENCY_TICKERS = {
+    "TRY": "TRY=X", 
+    "USD": "USD=X",
+    "EUR": "EURUSD=X", 
+    "RUB": "RUB=X",  
+    "JPY": "JPY=X",  
+    "CNY": "CNY=X",  
+    "INR": "INR=X",  
+    "SAR": "SAR=X",  
+}
 # ----------------------------
 # METALS
 # ----------------------------
 @app.get("/metals")
-def get_metals():
+def get_metals(user_uid: str): 
+    with Session(engine) as session:
+        user = session.get(User, user_uid)
+        language_code = user.language_code if user and user.language_code else 'en'
+        
+    target_currency = LANGUAGE_CURRENCY_MAP.get(language_code, 'USD')
+
     metals = {
         "Altın": "GC=F",
         "Gümüş": "SI=F",
         "Bakır": "HG=F"
     }
-    try:
-        usdtry = yf.Ticker("TRY=X").history(period="1d")['Close'].iloc[-1]
-    except:
-        usdtry = None
+    
+    currency_ticker = CURRENCY_TICKERS.get(target_currency)
+    usd_to_target = None
+
+    if target_currency == "USD":
+        usd_to_target = 1.0
+    elif currency_ticker:
+        try:
+            if target_currency == "EUR":
+                 exchange_rate_raw = yf.Ticker(currency_ticker).history(period="1d")['Close'].iloc[-1]
+                 usd_to_target = 1.0 / exchange_rate_raw
+            else:
+                 usd_to_target = yf.Ticker(currency_ticker).history(period="1d")['Close'].iloc[-1]
+
+        except Exception as e:
+            print(f"Error fetching exchange rate for {target_currency}: {e}")
+            usd_to_target = None
+    
+    if usd_to_target is None and target_currency != "USD":
+        usd_to_target = 1.0
+        print(f"Failed to get {target_currency} rate. Defaulting to USD.")
+
+
     result = {}
     for name, ticker_symbol in metals.items():
         try:
             price_usd = yf.Ticker(ticker_symbol).history(period="1d")['Close'].iloc[-1]
-            if usdtry is not None:
-                gram_price = (price_usd * usdtry) / 31.1035
+            
+            if usd_to_target is not None:
+                price_target = price_usd * usd_to_target
+                gram_price = price_target / 31.1035
+                
                 result[name] = round(gram_price, 2)
             else:
                 result[name] = None
-        except:
+        except Exception as e:
+            print(f"Error fetching metal {name}: {e}")
             result[name] = None
+            
     return result
 
 # ----------------------------
@@ -670,14 +724,22 @@ async def get_crypto_prices(n=50):
     return [r for r in results if r is not None]
 
 # ----------------------------
-# Combined Prices Endpoint
+# Combined Prices Endpoint 
 # ----------------------------
 @app.get("/prices")
-async def get_all_prices():
-    bist = await get_bist_prices()
-    nasdaq = await get_nasdaq_prices()
-    crypto = await get_crypto_prices()
-    metals_dict = get_metals()
+async def get_all_prices(user_uid: Optional[str] = Query(None)): 
+    
+    bist_task = get_bist_prices()
+    nasdaq_task = get_nasdaq_prices()
+    crypto_task = get_crypto_prices()
+
+    if user_uid is None:
+        raise HTTPException(status_code=400, detail="User UID is required for price fetching.")
+        
+    bist, nasdaq, crypto = await asyncio.gather(bist_task, nasdaq_task, crypto_task)
+    
+    metals_dict = get_metals(user_uid=user_uid) 
+    
     metals = [{"market": "METALS", "symbol": k, "price": v} for k, v in metals_dict.items()]
     bist = [{"market": "BIST", **item} for item in bist]
     nasdaq = [{"market": "NASDAQ", **item} for item in nasdaq]
