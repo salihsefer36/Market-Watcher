@@ -38,6 +38,7 @@ peewee==3.18.2
 platformdirs==4.4.0
 proto-plus==1.26.1
 protobuf==6.32.1
+psycopg2-binary==2.9.9
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
 pycparser==2.23
