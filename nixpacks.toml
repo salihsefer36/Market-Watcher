@@ -1,2 +1,5 @@
+
+providers = ["python"]
+
 [phases.setup]
-pkgs = ["pkgs.sqlite"]
+pkgs = ["...", "pkgs.sqlite"]
