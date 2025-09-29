@@ -30,6 +30,19 @@ class _HomePageState extends State<HomePage> {
     _loadUserSettings(); 
   }
 
+    String _getLocalizedSymbolName(String symbol, AppLocalizations localizations) {
+    switch (symbol) {
+      case 'Altın':
+        return localizations.metalGold; 
+      case 'Gümüş':
+        return localizations.metalSilver;
+      case 'Bakır':
+        return localizations.metalCopper; 
+      default:
+        return symbol;
+    }
+  }
+
   Future<void> _loadUserSettings() async {
     try {
       final uid = _auth.currentUser?.uid;
@@ -251,7 +264,13 @@ class _HomePageState extends State<HomePage> {
                                       underline: const SizedBox(),
                                       hint: Text(localizations.selectSymbol, style: const TextStyle(color: Colors.grey)),
                                       value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
-                                      items: symbolsForMarket.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white)))).toList(),
+                                      items: symbolsForMarket.map((s) {
+                                        final displayName = selectedMarket == 'METALS'? _getLocalizedSymbolName(s, localizations): s;
+                                        return DropdownMenuItem(
+                                          value: s,
+                                          child: Text(displayName, style: const TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis),
+                                        );
+                                      }).toList(),
                                       onChanged: (value) => setState(() => selectedSymbol = value),
                                     ),
                                   )
@@ -416,7 +435,13 @@ class _HomePageState extends State<HomePage> {
                                   underline: const SizedBox(),
                                   value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
                                   hint: Text(localizations.selectSymbol, style: TextStyle(color: Colors.grey)),
-                                  items: symbolsForMarket.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(color: Colors.white)))).toList(),
+                                  items: symbolsForMarket.map((s) {
+                                    final displayName = selectedMarket == 'METALS' ? _getLocalizedSymbolName(s, localizations): s;
+                                    return DropdownMenuItem(
+                                      value: s, 
+                                      child: Text(displayName, style: const TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis),
+                                    );
+                                  }).toList(),
                                   onChanged: (value) => setState(() => selectedSymbol = value),
                                 ),
                               ),

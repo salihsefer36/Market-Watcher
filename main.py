@@ -761,6 +761,6 @@ async def symbols_with_name(market: str, n: int = 50):
         symbols = await get_top_crypto_symbols(n)
         return [{"symbol": s[:-1], "name": s[:-1]} for s in symbols]
     elif market == "METALS":
-        metals_dict = get_metals()
-        return [{"symbol": k, "name": k} for k in metals_dict.keys()]
+        metal_names = ["Altın", "Gümüş", "Bakır"]
+        return [{"symbol": name, "name": name} for name in metal_names]
     return []
