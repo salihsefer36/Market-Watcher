@@ -149,7 +149,7 @@ abstract class AppLocalizations {
   /// No description provided for @setAlarm.
   ///
   /// In en, this message translates to:
-  /// **'Set Alarm'**
+  /// **'Set'**
   String get setAlarm;
 
   /// No description provided for @watchMarkets.

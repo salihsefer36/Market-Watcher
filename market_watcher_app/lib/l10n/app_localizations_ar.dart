@@ -24,7 +24,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get noAlarmsYet => 'لم يتم تعيين أي تنبيهات بعد.';
 
   @override
-  String get setAlarm => 'تعيين تنبيه';
+  String get setAlarm => 'ضبط';
 
   @override
   String get watchMarkets => 'مراقبة الأسواق';

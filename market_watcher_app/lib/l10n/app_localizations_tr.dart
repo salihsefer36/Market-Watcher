@@ -24,7 +24,7 @@ class AppLocalizationsTr extends AppLocalizations {
   String get noAlarmsYet => 'Henüz alarm kurulmadı.';
 
   @override
-  String get setAlarm => 'Alarm Kur';
+  String get setAlarm => 'Kur';
 
   @override
   String get watchMarkets => 'Piyasaları Takip Et';

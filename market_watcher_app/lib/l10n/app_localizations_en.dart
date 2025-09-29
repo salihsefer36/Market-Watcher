@@ -24,7 +24,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noAlarmsYet => 'No alarms have been set yet.';
 
   @override
-  String get setAlarm => 'Set Alarm';
+  String get setAlarm => 'Set';
 
   @override
   String get watchMarkets => 'Watch Markets';

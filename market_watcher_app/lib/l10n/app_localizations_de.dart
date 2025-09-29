@@ -24,7 +24,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noAlarmsYet => 'Es wurden noch keine Alarme gesetzt.';
 
   @override
-  String get setAlarm => 'Alarm setzen';
+  String get setAlarm => 'Setzen';
 
   @override
   String get watchMarkets => 'Märkte beobachten';

@@ -24,7 +24,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get noAlarmsYet => 'Оповещения ещё не установлены.';
 
   @override
-  String get setAlarm => 'Установить оповещение';
+  String get setAlarm => 'Установить';
 
   @override
   String get watchMarkets => 'Следить за рынками';

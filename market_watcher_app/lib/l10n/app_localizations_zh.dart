@@ -24,7 +24,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get noAlarmsYet => '尚未设置提醒。';
 
   @override
-  String get setAlarm => '设置提醒';
+  String get setAlarm => '设置';
 
   @override
   String get watchMarkets => '关注市场';
