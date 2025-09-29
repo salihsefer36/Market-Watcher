@@ -81,7 +81,7 @@ class _HomePageState extends State<HomePage> {
       if (exists) {
         String displaySymbol = symbol;
         if (market == 'CRYPTO' && displaySymbol.endsWith('USDT')) {
-          displaySymbol = displaySymbol.substring(0, displaySymbol.length - 4);
+          displaySymbol = displaySymbol.substring(0, displaySymbol.length - 1);
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -261,7 +261,7 @@ class _HomePageState extends State<HomePage> {
                                 ? () async {
                                     String formattedSymbol = selectedSymbol!;
                                     if (selectedMarket == 'CRYPTO') {
-                                      formattedSymbol = "${selectedSymbol!.toUpperCase()}USDT";
+                                      formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
                                     }
                                     Navigator.pop(dialogContext); // Close dialog before async operation
                                     await _createOrEditAlarm(selectedMarket!, formattedSymbol, selectedPercentage!);
@@ -286,7 +286,7 @@ class _HomePageState extends State<HomePage> {
     String? selectedMarket = alert['market'];
     String? selectedSymbol = alert['symbol'];
     if (selectedMarket == 'CRYPTO' && selectedSymbol != null && selectedSymbol.endsWith('USDT')) {
-      selectedSymbol = selectedSymbol.substring(0, selectedSymbol.length - 4);
+      selectedSymbol = selectedSymbol.substring(0, selectedSymbol.length - 1);
     }
     
     double? selectedPercentage = alert['percentage']?.toDouble();
@@ -427,7 +427,7 @@ class _HomePageState extends State<HomePage> {
                               if (selectedMarket != null && selectedSymbol != null && selectedPercentage != null) {
                                 String formattedSymbol = selectedSymbol!;
                                 if (selectedMarket == 'CRYPTO') {
-                                  formattedSymbol = "${selectedSymbol!.toUpperCase()}USDT";
+                                  formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
                                 }
                                 await _createOrEditAlarm(
                                   selectedMarket!,
@@ -526,7 +526,7 @@ class _HomePageState extends State<HomePage> {
                                     final item = _followedItems[index];
                                     String symbol = item['symbol'] ?? '';
                                     if (item['market'] == 'CRYPTO' && symbol.endsWith('USDT')) {
-                                      symbol = symbol.substring(0, symbol.length - 4);
+                                      symbol = symbol.substring(0, symbol.length - 1);
                                     }
                                     return Slidable(
                                       key: ValueKey(item['id']),
@@ -721,7 +721,7 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
                       if (market == "METALS") displayName = "Gram $displayName";
                       String displaySymbol = item['symbol'] ?? '';
                       if (market == "CRYPTO" && displaySymbol.endsWith('USDT')) {
-                        displaySymbol = displaySymbol.substring(0, displaySymbol.length - 4);
+                        displaySymbol = displaySymbol.substring(0, displaySymbol.length - 1);
                       }
                       return Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
