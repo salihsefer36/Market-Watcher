@@ -677,7 +677,7 @@ async def get_all_prices():
     bist = await get_bist_prices()
     nasdaq = await get_nasdaq_prices()
     crypto = await get_crypto_prices()
-    metals_dict = await get_metals()
+    metals_dict = get_metals()
     metals = [{"market": "METALS", "symbol": k, "price": v} for k, v in metals_dict.items()]
     bist = [{"market": "BIST", **item} for item in bist]
     nasdaq = [{"market": "NASDAQ", **item} for item in nasdaq]
@@ -699,7 +699,7 @@ async def symbols_with_name(market: str, n: int = 50):
         symbols = await get_top_crypto_symbols(n)
         return [{"symbol": s[:-1], "name": s[:-1]} for s in symbols]
     elif market == "METALS":
-        metals_dict = await get_metals()
+        metals_dict = get_metals()
         return [{"symbol": k, "name": k} for k in metals_dict.keys()]
     return []
 
