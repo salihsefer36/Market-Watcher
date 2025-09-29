@@ -1,5 +1,0 @@
-
-providers = ["python"]
-
-[phases.setup]
-pkgs = ["...", "pkgs.sqlite"]
