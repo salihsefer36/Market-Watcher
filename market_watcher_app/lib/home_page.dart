@@ -30,14 +30,14 @@ class _HomePageState extends State<HomePage> {
     _loadUserSettings(); 
   }
 
-    String _getLocalizedSymbolName(String symbol, AppLocalizations localizations) {
-    switch (symbol) {
-      case 'Altın':
-        return localizations.metalGold; 
-      case 'Gümüş':
+  String _getLocalizedSymbolName(String symbol, AppLocalizations localizations) {
+    switch (symbol.toLowerCase()) {
+      case 'altın' || 'altin':
+        return localizations.metalGold;
+      case 'gümüş' || 'gumus':
         return localizations.metalSilver;
-      case 'Bakır':
-        return localizations.metalCopper; 
+      case 'bakır' || 'bakir':
+        return localizations.metalCopper;
       default:
         return symbol;
     }
@@ -605,9 +605,8 @@ class _HomePageState extends State<HomePage> {
                                   itemBuilder: (context, index) {
                                     final item = _followedItems[index];
                                     String symbol = item['symbol'] ?? '';
-                                    if (item['market'] == 'CRYPTO' && symbol.endsWith('USDT')) {
-                                      symbol = symbol.substring(0, symbol.length - 1);
-                                    }
+                                    final String displaySymbol = item['market'] == 'METALS'? _getLocalizedSymbolName(symbol, localizations): (item['market'] == 'CRYPTO' && symbol.endsWith('USDT')? symbol.substring(0, symbol.length - 4): symbol);
+
                                     return Slidable(
                                       key: ValueKey(item['id']),
                                       endActionPane: ActionPane(
@@ -633,8 +632,9 @@ class _HomePageState extends State<HomePage> {
                                           backgroundColor: Colors.amber.withOpacity(0.1),
                                           child: Icon(Icons.notifications_active_outlined, color: Colors.amber.shade400),
                                         ),
-                                        title: Text(symbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.sp)),
-                                        subtitle: Text(item['market'] ?? '', style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp)),
+                                        // Artık burada çevrilmiş veya düzenlenmiş displaySymbol'ı kullanıyoruz
+                                        title: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.sp)),
+                                        subtitle: Text(_getLocalizedMarketName(item['market'] ?? '', localizations), style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp)),
                                         trailing: Text('%${item['percentage']}', style: TextStyle(color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.w500)),
                                         onTap: () => _openEditAlarmDialog(context, item, localizations),
                                       ),
