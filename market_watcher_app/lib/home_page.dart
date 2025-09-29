@@ -43,6 +43,17 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String _getLocalizedMarketName(String market, AppLocalizations localizations) {
+    switch (market) {
+      case 'CRYPTO':
+        return localizations.crypto; 
+      case 'METALS':
+        return localizations.metals; 
+      default: 
+        return market;
+    }
+  }
+
   Future<void> _loadUserSettings() async {
     try {
       final uid = _auth.currentUser?.uid;
@@ -232,7 +243,15 @@ class _HomePageState extends State<HomePage> {
                           underline: const SizedBox(),
                           value: selectedMarket,
                           hint: Text(localizations.selectMarket, style: const TextStyle(color: Colors.grey)),
-                          items: markets.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(color: Colors.white)))).toList(),
+                          items: markets.map((m) {
+                            return DropdownMenuItem(
+                              value: m, 
+                              child: Text(
+                                _getLocalizedMarketName(m, localizations),
+                                style: const TextStyle(color: Colors.white)
+                              ),
+                            );
+                          }).toList(),
                           onChanged: (value) async {
                             if (value == null) return;
                             setState(() {
@@ -403,7 +422,15 @@ class _HomePageState extends State<HomePage> {
                           isExpanded: true,
                           underline: const SizedBox(),
                           value: selectedMarket,
-                          items: markets.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(color: Colors.white)))).toList(),
+                          items: markets.map((m) {
+                            return DropdownMenuItem(
+                              value: m, 
+                              child: Text(
+                                _getLocalizedMarketName(m, localizations), 
+                                style: const TextStyle(color: Colors.white)
+                              ),
+                            );
+                          }).toList(),
                           onChanged: (value) async {
                             if (value == null) return;
                             setState(() {

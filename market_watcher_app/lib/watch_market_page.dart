@@ -156,9 +156,9 @@ Future<void> fetchAllDataEfficiently() async {
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           child: Row(
             children: [
-              Expanded(flex: 3, child: Text(localizations.symbol, style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
-              Expanded(flex: 5, child: Text(localizations.name, style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
-              Expanded(flex: 3, child: Align(alignment: Alignment.centerRight, child: Text(localizations.price, style: TextStyle(color: Colors.grey, fontSize: 12.sp)))),
+              Expanded(flex: 6, child: Text(localizations.symbol, style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
+              Expanded(flex: 10, child: Text(localizations.name, style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
+              Expanded(flex: 7, child: Align(alignment: Alignment.centerRight, child: Text(localizations.price, style: TextStyle(color: Colors.grey, fontSize: 12.sp)))),
             ],
           ),
         ),
@@ -237,9 +237,9 @@ Future<void> fetchAllDataEfficiently() async {
                         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
                         child: Row(
                           children: [
-                            Expanded(flex: 3, child: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.sp))),
-                            Expanded(flex: 5, child: Text(displayName, style: TextStyle(color: Colors.grey.shade400, fontSize: 13.sp), overflow: TextOverflow.ellipsis)),
-                            Expanded(flex: 3, child: Align(alignment: Alignment.centerRight, child: Text(displayPrice, style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14.sp, letterSpacing: 0.5)))),
+                            Expanded(flex: 6, child: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.sp))),
+                            Expanded(flex: 10, child: Text(displayName, style: TextStyle(color: Colors.grey.shade400, fontSize: 13.sp), overflow: TextOverflow.ellipsis)),
+                            Expanded(flex: 7, child: Align(alignment: Alignment.centerRight, child: Text(displayPrice, style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14.sp, letterSpacing: 0.5)))),
                           ],
                         ),
                       );
