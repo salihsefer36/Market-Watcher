@@ -5,10 +5,12 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:provider/provider.dart';
 import 'l10n/app_localizations.dart';
 import 'settings_page.dart';
 import 'main.dart';
 import 'watch_market_page.dart';
+import 'locale_provider.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,6 +27,26 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _fetchUserAlarms();
+    _loadUserSettings(); 
+  }
+
+  Future<void> _loadUserSettings() async {
+    try {
+      final uid = _auth.currentUser?.uid;
+      if (uid == null) return;
+
+      final uri = Uri.parse("$backendBaseUrl/user/settings/$uid");
+      final response = await http.get(uri).timeout(const Duration(seconds: 10)); 
+
+      if (response.statusCode == 200 && mounted) {
+        final settings = jsonDecode(response.body);
+        final languageCode = settings['language_code'] ?? 'en';
+
+        Provider.of<LocaleProvider>(context, listen: false).setLocale(languageCode);
+      }
+    } catch (e) {
+      print("Failed to load user settings on Home Page: $e");
+    }
   }
 
   Future<void> _fetchUserAlarms() async {
@@ -474,6 +496,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    Provider.of<LocaleProvider>(context); 
     final user = _auth.currentUser;
     final localizations = AppLocalizations.of(context)!;
     return Scaffold(
