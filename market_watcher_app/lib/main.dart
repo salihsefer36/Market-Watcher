@@ -9,7 +9,7 @@ import 'l10n/app_localizations.dart';
 import 'locale_provider.dart';
 import 'auth_gate.dart';
 
-final String backendBaseUrl = "http://192.168.0.112:8000";
+final String backendBaseUrl = "https://market-watcher.up.railway.app";
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
