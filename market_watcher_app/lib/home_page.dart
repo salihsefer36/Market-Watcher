@@ -242,7 +242,7 @@ class _HomePageState extends State<HomePage> {
                           isExpanded: true,
                           underline: const SizedBox(),
                           value: selectedMarket,
-                          hint: Text(localizations.selectMarket, style: const TextStyle(color: Colors.grey)),
+                          hint: Text(localizations.selectMarket,style: const TextStyle(color: Colors.grey),overflow: TextOverflow.ellipsis),
                           items: markets.map((m) {
                             return DropdownMenuItem(
                               value: m, 
@@ -281,7 +281,7 @@ class _HomePageState extends State<HomePage> {
                                       dropdownColor: Colors.grey.shade800,
                                       isExpanded: true,
                                       underline: const SizedBox(),
-                                      hint: Text(localizations.selectSymbol, style: const TextStyle(color: Colors.grey)),
+                                      hint: Text(localizations.selectMarket,style: const TextStyle(color: Colors.grey),overflow: TextOverflow.ellipsis),
                                       value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
                                       items: symbolsForMarket.map((s) {
                                         final displayName = selectedMarket == 'METALS'? _getLocalizedSymbolName(s, localizations): s;
@@ -302,7 +302,7 @@ class _HomePageState extends State<HomePage> {
                           dropdownColor: Colors.grey.shade800,
                           isExpanded: true,
                           underline: const SizedBox(),
-                          hint: Text(localizations.selectChangePercent, style: const TextStyle(color: Colors.grey)),
+                          hint: Text(localizations.selectMarket,style: const TextStyle(color: Colors.grey),overflow: TextOverflow.ellipsis),
                           value: selectedPercentage,
                           items: percentages.map((p) => DropdownMenuItem(value: p.toDouble(), child: Text('$p%', style: const TextStyle(color: Colors.white)))).toList(),
                           onChanged: (value) => setState(() => selectedPercentage = value),
@@ -463,7 +463,7 @@ class _HomePageState extends State<HomePage> {
                                   isExpanded: true,
                                   underline: const SizedBox(),
                                   value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
-                                  hint: Text(localizations.selectSymbol, style: TextStyle(color: Colors.grey)),
+                                  hint: Text(localizations.selectMarket,style: const TextStyle(color: Colors.grey),overflow: TextOverflow.ellipsis),
                                   items: symbolsForMarket.map((s) {
                                     final displayName = selectedMarket == 'METALS' ? _getLocalizedSymbolName(s, localizations): s;
                                     return DropdownMenuItem(
@@ -484,7 +484,7 @@ class _HomePageState extends State<HomePage> {
                           isExpanded: true,
                           underline: const SizedBox(),
                           value: selectedPercentage,
-                          hint: Text(localizations.selectChangePercent, style: TextStyle(color: Colors.grey)),
+                          hint: Text(localizations.selectMarket,style: const TextStyle(color: Colors.grey),overflow: TextOverflow.ellipsis),
                           items: percentages.map((p) => DropdownMenuItem(value: p.toDouble(), child: Text('$p%', style: const TextStyle(color: Colors.white)))).toList(),
                           onChanged: (value) => setState(() => selectedPercentage = value),
                         ),
