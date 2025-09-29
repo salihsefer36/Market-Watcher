@@ -164,8 +164,9 @@ async def edit_alert(alert_id: int, alert_in: AlertCreate):
             alert.user_token = alert_in.user_token
             alert.user_uid = alert_in.user_uid
 
-            current_price = await fetch_price(alert.symbol)
-            if current_price is not None:
+            current_price_raw = await fetch_price(alert.symbol)
+            if current_price_raw is not None:
+                current_price = float(current_price_raw)
                 alert.base_price = current_price
                 alert.upper_limit = current_price * (1 + alert.percentage / 100)
                 alert.lower_limit = current_price * (1 - alert.percentage / 100)
