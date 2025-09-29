@@ -133,4 +133,16 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get watchMarketChart => 'Observar mercado 📈';
+
+  @override
+  String get gram => 'Gramo';
+
+  @override
+  String get metalGold => 'Oro';
+
+  @override
+  String get metalSilver => 'Plata';
+
+  @override
+  String get metalCopper => 'Cobre';
 }

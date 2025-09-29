@@ -132,4 +132,16 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get watchMarketChart => 'Markt beobachten 📈';
+
+  @override
+  String get gram => 'Gramm';
+
+  @override
+  String get metalGold => 'Gold';
+
+  @override
+  String get metalSilver => 'Silber';
+
+  @override
+  String get metalCopper => 'Kupfer';
 }

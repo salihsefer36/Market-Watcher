@@ -155,11 +155,36 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
                       final priceValue = item['price'] as num;
                       String currencySymbol = (market == "BIST" || market == "METALS") ? "₺" : "\$";
                       String displayPrice = "${priceValue.toStringAsFixed(2)}$currencySymbol";
-                      String displayName = item['name'] ?? item['symbol'] ?? '';
-                      if (market == "METALS") displayName = "Gram $displayName";
+                      String displayName;
+
+                      if (market == "METALS") {
+                          final metalName = item['symbol']?.toString() ?? '';
+                          String localizedMetalName = metalName; 
+                          
+                          if (metalName == "Altın") {
+                              localizedMetalName = AppLocalizations.of(context)!.metalGold;
+                          } else if (metalName == "Gümüş") {
+                              localizedMetalName = AppLocalizations.of(context)!.metalSilver;
+                          } else if (metalName == "Bakır") {
+                              localizedMetalName = AppLocalizations.of(context)!.metalCopper;
+                          }
+
+                          displayName = "${AppLocalizations.of(context)!.gram} $localizedMetalName";
+                      }else {
+                          displayName = item['name'] ?? item['symbol'] ?? '';
+                      }
+
                       String displaySymbol = item['symbol'] ?? '';
                       if (market == "CRYPTO" && displaySymbol.endsWith('USDT')) {
-                        displaySymbol = displaySymbol.substring(0, displaySymbol.length - 4); // Burada 4 karakter kesilmeli (USDT)
+                        displaySymbol = displaySymbol.substring(0, displaySymbol.length - 4); // Cut 4 character (USDT)
+                      }else if (market == "METALS") {
+                          if (displaySymbol == "Altın") {
+                              displaySymbol = AppLocalizations.of(context)!.metalGold;
+                          } else if (displaySymbol == "Gümüş") {
+                              displaySymbol = AppLocalizations.of(context)!.metalSilver;
+                          } else if (displaySymbol == "Bakır") {
+                              displaySymbol = AppLocalizations.of(context)!.metalCopper;
+                          }
                       }
                       return Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),

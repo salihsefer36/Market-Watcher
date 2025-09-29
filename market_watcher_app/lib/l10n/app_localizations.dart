@@ -355,6 +355,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Watch Market 📈'**
   String get watchMarketChart;
+
+  /// No description provided for @gram.
+  ///
+  /// In en, this message translates to:
+  /// **'Gram'**
+  String get gram;
+
+  /// No description provided for @metalGold.
+  ///
+  /// In en, this message translates to:
+  /// **'Gold'**
+  String get metalGold;
+
+  /// No description provided for @metalSilver.
+  ///
+  /// In en, this message translates to:
+  /// **'Silver'**
+  String get metalSilver;
+
+  /// No description provided for @metalCopper.
+  ///
+  /// In en, this message translates to:
+  /// **'Copper'**
+  String get metalCopper;
 }
 
 class _AppLocalizationsDelegate

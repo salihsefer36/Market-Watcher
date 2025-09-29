@@ -39,5 +39,9 @@
   "alarmAlreadyExists": "{market} に {displaySymbol} のアラームはすでに存在します",
   "marketSymbolsCouldNotBeLoaded": "{market} のシンボルを読み込めませんでした。",
   "noMarketDataFound": "マーケットデータが見つかりません",
-  "watchMarketChart": "マーケットを監視 📈"
+  "watchMarketChart": "マーケットを監視 📈",
+  "gram": "グラム",
+  "metalGold": "ゴールド",
+  "metalSilver": "銀",
+  "metalCopper": "銅"
 }

@@ -39,5 +39,9 @@
   "alarmAlreadyExists": "Esiste già un allarme per {displaySymbol} in {market}",
   "marketSymbolsCouldNotBeLoaded": "Impossibile caricare i simboli di {market}.",
   "noMarketDataFound": "Nessun dato di mercato trovato",
-  "watchMarketChart": "Osserva mercato 📈"
+  "watchMarketChart": "Osserva mercato 📈",
+  "gram": "Grammo",
+  "metalGold": "Oro",
+  "metalSilver": "Argento",
+  "metalCopper": "Rame"
 }

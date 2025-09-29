@@ -132,4 +132,16 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get watchMarketChart => 'Следить за рынком 📈';
+
+  @override
+  String get gram => 'Грамм';
+
+  @override
+  String get metalGold => 'Золото';
+
+  @override
+  String get metalSilver => 'Серебро';
+
+  @override
+  String get metalCopper => 'Медь';
 }

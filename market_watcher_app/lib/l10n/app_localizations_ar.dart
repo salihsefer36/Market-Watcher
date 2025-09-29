@@ -132,4 +132,16 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get watchMarketChart => 'مراقبة السوق 📈';
+
+  @override
+  String get gram => 'جرام';
+
+  @override
+  String get metalGold => 'ذهب';
+
+  @override
+  String get metalSilver => 'فضة';
+
+  @override
+  String get metalCopper => 'نحاس';
 }

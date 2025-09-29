@@ -39,5 +39,9 @@
   "alarmAlreadyExists": "{market} 中已存在 {displaySymbol} 的提醒",
   "marketSymbolsCouldNotBeLoaded": "无法加载 {market} 符号。",
   "noMarketDataFound": "未找到市场数据",
-  "watchMarketChart": "关注市场 📈"
+  "watchMarketChart": "关注市场 📈",
+  "gram": "克",
+  "metalGold": "黄金",
+  "metalSilver": "白银",
+  "metalCopper": "铜"
 }

@@ -132,4 +132,16 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get watchMarketChart => 'बाजार देखें 📈';
+
+  @override
+  String get gram => 'ग्राम';
+
+  @override
+  String get metalGold => 'सोना';
+
+  @override
+  String get metalSilver => 'चांदी';
+
+  @override
+  String get metalCopper => 'ताँबा';
 }

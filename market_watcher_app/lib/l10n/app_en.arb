@@ -40,5 +40,9 @@
   "alarmAlreadyExists": "Alarm already exists for {displaySymbol} in {market}",
   "marketSymbolsCouldNotBeLoaded": "{market} symbols could not be loaded.",
   "noMarketDataFound": "No Market Data Found",
-  "watchMarketChart": "Watch Market 📈"
+  "watchMarketChart": "Watch Market 📈",
+  "gram": "Gram",
+  "metalGold": "Gold",
+  "metalSilver": "Silver",
+  "metalCopper": "Copper"
 }

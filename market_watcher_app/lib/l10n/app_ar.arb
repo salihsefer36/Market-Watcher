@@ -39,5 +39,9 @@
     "alarmAlreadyExists": "التنبيه موجود بالفعل لـ {displaySymbol} في {market}",
     "marketSymbolsCouldNotBeLoaded": "لا يمكن تحميل رموز {market}.",
     "noMarketDataFound": "لم يتم العثور على بيانات للسوق",
-    "watchMarketChart": "مراقبة السوق 📈"
+    "watchMarketChart": "مراقبة السوق 📈",
+    "gram": "جرام",
+    "metalGold": "ذهب",
+    "metalSilver": "فضة",
+    "metalCopper": "نحاس"
 }

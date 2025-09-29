@@ -132,4 +132,16 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get watchMarketChart => 'Piyasayı Takip Et 📈';
+
+  @override
+  String get gram => 'Gram';
+
+  @override
+  String get metalGold => 'Altın';
+
+  @override
+  String get metalSilver => 'Gümüş';
+
+  @override
+  String get metalCopper => 'Bakır';
 }

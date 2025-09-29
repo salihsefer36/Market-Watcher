@@ -40,5 +40,9 @@
   "alarmAlreadyExists": "{market} içinde {displaySymbol} için alarm zaten mevcut",
   "marketSymbolsCouldNotBeLoaded": "{market} sembolleri yüklenemedi.",
   "noMarketDataFound": "Piyasa verisi bulunamadı",
-  "watchMarketChart": "Piyasayı Takip Et 📈"
+  "watchMarketChart": "Piyasayı Takip Et 📈",
+  "gram": "Gram",
+  "metalGold": "Altın",
+  "metalSilver": "Gümüş",
+  "metalCopper": "Bakır"
 }

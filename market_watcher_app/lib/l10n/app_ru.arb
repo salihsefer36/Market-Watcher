@@ -39,5 +39,9 @@
   "alarmAlreadyExists": "Оповещение для {displaySymbol} на {market} уже существует",
   "marketSymbolsCouldNotBeLoaded": "Не удалось загрузить символы {market}.",
   "noMarketDataFound": "Рыночные данные не найдены",
-  "watchMarketChart": "Следить за рынком 📈"
+  "watchMarketChart": "Следить за рынком 📈",
+  "gram": "Грамм",
+  "metalGold": "Золото",
+  "metalSilver": "Серебро",
+  "metalCopper": "Медь"
 }

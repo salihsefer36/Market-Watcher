@@ -131,4 +131,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get watchMarketChart => '关注市场 📈';
+
+  @override
+  String get gram => '克';
+
+  @override
+  String get metalGold => '黄金';
+
+  @override
+  String get metalSilver => '白银';
+
+  @override
+  String get metalCopper => '铜';
 }
