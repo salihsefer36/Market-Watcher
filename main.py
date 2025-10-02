@@ -44,7 +44,7 @@ if not DB_URL:
 if DB_URL.startswith("postgres://"):
     DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
 
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "60")) # API limitlerini zorlamamak için 60 saniyeye çekmek mantıklı olabilir
+CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "60"))
 
 engine = create_engine(DB_URL, echo=False)
 app = FastAPI(title="MarketWatcher Backend")
