@@ -218,13 +218,30 @@ def send_push_notification(token: str, title: str, body: str):
     try:
         message = messaging.Message(
             notification=messaging.Notification(title=title, body=body),
+            
+            data={
+                "title": title,
+                "body": body,
+                "click_action": "FLUTTER_NOTIFICATION_CLICK", 
+            },
+            
+            android=messaging.AndroidConfig(
+                priority="high",
+            ),
+            
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(
+                        content_available=True,
+                    )
+                )
+            ),
             token=token
         )
         response = messaging.send(message)
         print(f"Push notification sent successfully: {response}")
     except Exception as e:
         print(f"Error sending FCM notification: {e}")
-
 # ----------------------------
 # Price Fetch
 # ----------------------------
