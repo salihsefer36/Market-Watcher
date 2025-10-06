@@ -1,6 +1,7 @@
 import os
 import asyncio
 from datetime import datetime
+import traceback
 from typing import Optional, List, Dict
 
 from fastapi import FastAPI, HTTPException, Query, Path
@@ -63,6 +64,7 @@ app.add_middleware(
 class Alert(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_uid: str = Field(foreign_key="user.uid", index=True)
     market: str
     symbol: str
     percentage: float
@@ -70,22 +72,20 @@ class Alert(SQLModel, table=True):
     upper_limit: float
     lower_limit: float
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    user_token: Optional[str] = None  # FCM Cihaz Token'ı
-    user_uid: Optional[str] = Field(default=None, index=True) # Firebase Auth UID'si
 
 class AlertCreate(SQLModel):
     market: str
     symbol: str
     percentage: float
-    user_token: Optional[str] = None  # FCM Cihaz Token'ı
-    user_uid: Optional[str] = None    # Firebase Auth UID'si
+    user_uid: Optional[str] = None    
 
 class UserSettings(SQLModel):
     notifications_enabled: bool
-    language_code: str = Field(default="en") # Default language is english (en)
+    language_code: str = Field(default="en") 
 
 class User(UserSettings, table=True):
     uid: str = Field(primary_key=True)
+    fcm_token: Optional[str] = Field(default=None, index=True)
 
 # ----------------------------
 # DB ve tablo oluşturma
@@ -96,6 +96,21 @@ def create_db_and_tables():
 # ----------------------------
 # CRUD for Alerts and Settings
 # ----------------------------
+@app.post("/user/register_token", status_code=200)
+def register_token(user_uid: str = Query(...), token: str = Query(...)):
+    """Kullanıcının FCM cihaz token'ını veritabanına kaydeder veya günceller."""
+    with Session(engine) as session:
+        user = session.get(User, user_uid)
+        if not user:
+            # Kullanıcı yoksa, yeni bir kullanıcı oluştur ve token'ı ata.
+            user = User(uid=user_uid, fcm_token=token)
+        else:
+            # Kullanıcı varsa, sadece token'ını güncelle.
+            user.fcm_token = token
+        session.add(user)
+        session.commit()
+    return {"status": "token registered successfully"}
+
 @app.post("/alerts", response_model=Alert)
 async def create_alert(alert_in: AlertCreate):
     try:
@@ -106,17 +121,13 @@ async def create_alert(alert_in: AlertCreate):
         current_price = float(current_price_raw)
         perc = float(alert_in.percentage)
 
-        upper = current_price * (1 + perc / 100)
-        lower = current_price * (1 - perc / 100)
-
         alert = Alert(
             market=alert_in.market,
             symbol=alert_in.symbol.upper(),
             percentage=perc,
             base_price=current_price,
-            upper_limit=upper,
-            lower_limit=lower,
-            user_token=alert_in.user_token,
+            upper_limit=current_price * (1 + perc / 100),
+            lower_limit=current_price * (1 - perc / 100),
             user_uid=alert_in.user_uid
         )
 
@@ -126,7 +137,6 @@ async def create_alert(alert_in: AlertCreate):
             session.refresh(alert)
         return alert
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -161,7 +171,6 @@ async def edit_alert(alert_id: int, alert_in: AlertCreate):
             alert.market = alert_in.market
             alert.symbol = alert_in.symbol.upper()
             alert.percentage = float(alert_in.percentage)
-            alert.user_token = alert_in.user_token
             alert.user_uid = alert_in.user_uid
 
             current_price_raw = await fetch_price(alert.symbol)
@@ -176,7 +185,6 @@ async def edit_alert(alert_id: int, alert_in: AlertCreate):
             session.refresh(alert)
             return alert
     except Exception as e:
-        import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     

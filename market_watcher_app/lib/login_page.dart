@@ -1,13 +1,25 @@
+import 'dart:convert'; // YENİ: crypto için eklendi
+import 'dart:math';   // YENİ: crypto için eklendi
+import 'package:crypto/crypto.dart'; // YENİ: crypto için eklendi
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'l10n/app_localizations.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+
+String _generateRandomString([int length = 32]) {
+  final random = Random.secure();
+  final values = List<int>.generate(length, (i) => random.nextInt(256));
+  return base64Url.encode(values);
+}
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
+  // Google ile giriş fonksiyonu (değişiklik yok)
   Future<void> signInWithGoogle(BuildContext context) async {
     final localizations = AppLocalizations.of(context)!;
     try {
@@ -27,7 +39,55 @@ class LoginPage extends StatelessWidget {
     } catch (e) {
       print('Google Sign-In hatası: $e');
       if (context.mounted) {
-        _showErrorSnackBar(context, localizations.noDataFound); // Örnek bir hata metni
+        _showErrorSnackBar(context, localizations.noDataFound);
+      }
+    }
+  }
+
+  // YENİ: Facebook ile giriş fonksiyonu
+  Future<void> signInWithFacebook(BuildContext context) async {
+    final localizations = AppLocalizations.of(context)!;
+    try {
+      final result = await FacebookAuth.instance.login();
+      if (result.status == LoginStatus.success) {
+        final OAuthCredential credential = FacebookAuthProvider.credential(result.accessToken!.tokenString);
+        await FirebaseAuth.instance.signInWithCredential(credential);
+      } else {
+        if (context.mounted) {
+          _showErrorSnackBar(context, result.message ?? localizations.noDataFound);
+        }
+      }
+    } catch (e) {
+      print('Facebook Sign-In hatası: $e');
+      if (context.mounted) {
+        _showErrorSnackBar(context, localizations.noDataFound);
+      }
+    }
+  }
+
+  Future<void> signInWithApple(BuildContext context) async {
+    final localizations = AppLocalizations.of(context)!;
+    
+    final rawNonce = _generateRandomString();
+    final nonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
+    try {
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+        nonce: nonce, 
+      );
+
+      final credential = OAuthProvider("apple.com").credential(
+        idToken: appleCredential.identityToken,
+        rawNonce: rawNonce, 
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+
+    } catch (e) {
+      print('Apple Sign-In hatası: $e');
+      if (context.mounted) {
+        _showErrorSnackBar(context, localizations.noDataFound);
       }
     }
   }
@@ -42,7 +102,6 @@ class LoginPage extends StatelessWidget {
         content: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            // Hata kutusu için daha koyu kırmızı gradyan
             gradient: LinearGradient(colors: [Colors.red.shade800, Colors.redAccent.shade700]),
             borderRadius: BorderRadius.circular(16.r),
           ),
@@ -63,7 +122,6 @@ class LoginPage extends StatelessWidget {
     final localizations = AppLocalizations.of(context)!;
     return Scaffold(
       body: Container(
-        // Arka plan için çekici, derin bir gradyan
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black], begin: Alignment.topLeft, end: Alignment.bottomRight),
         ),
@@ -74,70 +132,105 @@ class LoginPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const Spacer(flex: 2),
-                // Logo/İkon: Daha büyük, daha fazla gölgeli ve canlı
                 Icon(
                   Icons.insights_rounded,
-                  size: 100.sp, 
-                  color: Colors.amber.shade400, 
+                  size: 100.sp,
+                  color: Colors.amber.shade400,
                   shadows: [
                     BoxShadow(color: Colors.amber.shade400.withOpacity(0.8), blurRadius: 30.0, spreadRadius: 5.0)
                   ],
                 ),
                 SizedBox(height: 24.h),
                 Text(
-                  localizations.marketWatcher, 
-                  textAlign: TextAlign.center, 
-                  style: TextStyle(
-                    fontSize: 44.sp, 
-                    fontWeight: FontWeight.w900, // Daha kalın font
-                    color: Colors.white, 
-                    letterSpacing: 1.5,
-                  )
+                    localizations.marketWatcher,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 44.sp, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)
                 ),
                 SizedBox(height: 12.h),
                 Text(localizations.instantMarketAlarms, textAlign: TextAlign.center, style: TextStyle(fontSize: 18.sp, color: Colors.grey.shade300, fontWeight: FontWeight.w300)),
                 const Spacer(flex: 3),
-                // Google Butonu: Daha belirgin bir gölge ve efekt
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFFFFB300), Colors.amberAccent], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    borderRadius: BorderRadius.circular(16.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.amber.shade400.withOpacity(0.4), 
-                        blurRadius: 15, 
-                        offset: const Offset(0, 8)
-                      )
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16.r),
-                      onTap: () => signInWithGoogle(context),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 18.h, horizontal: 24.w),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // Basit bir Google ikonu yerine, gerçek logo görseli (varsayımsal)
-                            // Image.asset('assets/images/google_logo.png', height: 24.h),
-                            Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/200px-Google_%22G%22_logo.svg.png', height: 24.h),
-                            SizedBox(width: 12.w),
-                            Text(localizations.continueWithGoogle, style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.black)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+
+                // Google Butonu (Mevcut hali)
+                _buildLoginButton(
+                  context: context,
+                  onTap: () => signInWithGoogle(context),
+                  gradientColors: const [Color(0xFFFFB300), Colors.amberAccent],
+                  icon: Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/200px-Google_%22G%22_logo.svg.png', height: 24.h),
+                  text: localizations.continueWithGoogle,
+                  textColor: Colors.black,
                 ),
+                SizedBox(height: 16.h),
+
+                // YENİ: Facebook Butonu
+                _buildLoginButton(
+                  context: context,
+                  onTap: () => signInWithFacebook(context),
+                  gradientColors: const [Color(0xFF1877F2), Color(0xFF4267B2)],
+                  icon: const Icon(Icons.facebook, color: Colors.white),
+                  text: "Continue with Facebook", // Bunu l10n klasörünüze ekleyin
+                  textColor: Colors.white,
+                ),
+                SizedBox(height: 16.h),
+
+                // YENİ: Apple Butonu (Sadece Apple platformlarında görünür)
+                if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS))
+                  SignInWithAppleButton(
+                    text: "Continue with Apple", // Bunu l10n klasörünüze ekleyin
+                    style: SignInWithAppleButtonStyle.black,
+                    borderRadius: BorderRadius.all(Radius.circular(16.r)),
+                    onPressed: () => signInWithApple(context),
+                    height: 60.h,
+                  ),
+
                 const Spacer(flex: 1),
                 Text(
                   "localizations.loginPrivacyNote",
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 10.sp, color: Colors.grey.shade600),
                 )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Butonları daha modüler hale getirmek için yardımcı bir widget
+  Widget _buildLoginButton({
+    required BuildContext context,
+    required VoidCallback onTap,
+    required List<Color> gradientColors,
+    required Widget icon,
+    required String text,
+    required Color textColor,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: gradientColors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: [
+          BoxShadow(
+              color: gradientColors[0].withOpacity(0.4),
+              blurRadius: 15,
+              offset: const Offset(0, 8)
+          )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16.r),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 18.h, horizontal: 24.w),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                icon,
+                SizedBox(width: 12.w),
+                Text(text, style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: textColor)),
               ],
             ),
           ),

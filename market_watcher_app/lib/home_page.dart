@@ -28,6 +28,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _fetchUserAlarms();
     _loadUserSettings(); 
+    _registerDeviceToken();
   }
 
   String _getLocalizedSymbolName(String symbol, AppLocalizations localizations) {
@@ -51,6 +52,29 @@ class _HomePageState extends State<HomePage> {
         return localizations.metals; 
       default: 
         return market;
+    }
+  }
+
+  Future<void> _registerDeviceToken() async {
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    final user = _auth.currentUser;
+
+    if (fcmToken == null || user == null) {
+      print("Token veya kullanıcı bulunamadı, kayıt yapılamadı.");
+      return;
+    }
+
+    try {
+      final url = Uri.parse('$backendBaseUrl/user/register_token?user_uid=${user.uid}&token=$fcmToken');
+      final response = await http.post(url);
+
+      if (response.statusCode == 200) {
+        print("Cihaz token'ı başarıyla backend'e kaydedildi.");
+      } else {
+        print("Backend'e token kaydı başarısız: ${response.body}");
+      }
+    } catch (e) {
+      print("Token kaydı sırasında hata oluştu: $e");
     }
   }
 
@@ -108,11 +132,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(localizations.pleaseSignInFirst)));
         return;
       }
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      if (fcmToken == null) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(localizations.couldNotGetNotificationToken)));
-        return;
-      }
 
       final exists = _followedItems.any((alarm) {
         if (editId != null && alarm['id'] == editId) return false;
@@ -158,7 +177,7 @@ class _HomePageState extends State<HomePage> {
       }
 
       final uri = editId != null ? Uri.parse("$backendBaseUrl/alerts/$editId") : Uri.parse("$backendBaseUrl/alerts");
-      final body = jsonEncode({"market": market, "symbol": symbol, "percentage": percentage, "user_uid": userUid, "user_token": fcmToken});
+      final body = jsonEncode({"market": market, "symbol": symbol, "percentage": percentage, "user_uid": userUid});
       final res = editId != null
           ? await http.put(uri, headers: {"Content-Type": "application/json"}, body: body)
           : await http.post(uri, headers: {"Content-Type": "application/json"}, body: body);
