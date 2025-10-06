@@ -290,7 +290,27 @@ async def fetch_price(symbol: str):
 
         return None
 # ----------------------------
-# --- YENİ ÇEVİRİ SÖZLÜĞÜ ---
+# --- YENİ ÇEVİRİ SÖZLÜĞÜ (Metal İsimleri) ---
+# ALTIN, GÜMÜŞ, BAKIR sembollerinin farklı dillerdeki karşılıkları.
+METAL_LOCALIZATION_MAP = {
+    "ALTIN": {
+        "tr": "Altın", "en": "Gold", "de": "Gold", "fr": "Or", "es": "Oro",
+        "it": "Oro", "ru": "Золото", "zh": "黄金", "hi": "सोना", "ja": "金",
+        "ar": "الذهب"
+    },
+    "GÜMÜŞ": {
+        "tr": "Gümüş", "en": "Silver", "de": "Silber", "fr": "Argent", "es": "Plata",
+        "it": "Argento", "ru": "Серебро", "zh": "白银", "hi": "चांदी", "ja": "銀",
+        "ar": "الفضة"
+    },
+    "BAKIR": {
+        "tr": "Bakır", "en": "Copper", "de": "Kupfer", "fr": "Cuivre", "es": "Cobre",
+        "it": "Rame", "ru": "Медь", "zh": "铜", "hi": "तांबा", "ja": "銅",
+        "ar": "النحاس"
+    }
+}
+# ----------------------------
+# --- YENİ ÇEVİRİ SÖZLÜĞÜ (Şablonlar) ---
 # Bu yapıyı dosyanın üst kısımlarına veya price_check_loop'un hemen öncesine ekleyebilirsiniz.
 NOTIFICATION_TEMPLATES = {
     "en": {
@@ -388,11 +408,12 @@ async def price_check_loop():
                 user_settings = user_preferences.get(alert.user_uid)
                 notifications_on = user_settings.notifications_enabled if user_settings else True
                 
-                # 1. Kullanıcının dilini al, eğer ayarı yoksa veya dil desteklenmiyorsa varsayılan olarak 'en' kullan.
                 lang_code = user_settings.language_code if user_settings and user_settings.language_code in NOTIFICATION_TEMPLATES else "en"
                 
-                # 2. Seçilen dile göre metin şablonunu al.
                 template = NOTIFICATION_TEMPLATES[lang_code]
+
+                localized_symbol = METAL_LOCALIZATION_MAP.get(alert.symbol, {}).get(lang_code, alert.symbol)
+
 
                 current_price = prices.get(alert.symbol)
                 if current_price is None:
@@ -400,14 +421,12 @@ async def price_check_loop():
 
                 if current_price >= alert.upper_limit or current_price <= alert.lower_limit:
                     if alert.user_token and notifications_on:
-                        # 3. Yön (arttı/azaldı) metnini de şablondan al.
                         is_increase = current_price >= alert.upper_limit
                         direction_text = template["increased"] if is_increase else template["decreased"]
                         
-                        # 4. Başlık ve gövde metinlerini seçilen dilde formatla.
-                        title = template["title"].format(symbol=alert.symbol)
+                        title = template["title"].format(symbol=localized_symbol)
                         body = template["body"].format(
-                            symbol=alert.symbol,
+                            symbol=localized_symbol,
                             percentage=alert.percentage,
                             direction=direction_text,
                             price=current_price
