@@ -144,7 +144,7 @@ class LoginPage extends StatelessWidget {
                 Text(
                     localizations.marketWatcher,
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 44.sp, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)
+                    style: TextStyle(fontSize: 40.sp, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)
                 ),
                 SizedBox(height: 12.h),
                 Text(localizations.instantMarketAlarms, textAlign: TextAlign.center, style: TextStyle(fontSize: 18.sp, color: Colors.grey.shade300, fontWeight: FontWeight.w300)),
@@ -181,13 +181,6 @@ class LoginPage extends StatelessWidget {
                     onPressed: () => signInWithApple(context),
                     height: 60.h,
                   ),
-
-                const Spacer(flex: 1),
-                Text(
-                  "localizations.loginPrivacyNote",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10.sp, color: Colors.grey.shade600),
-                )
               ],
             ),
           ),
