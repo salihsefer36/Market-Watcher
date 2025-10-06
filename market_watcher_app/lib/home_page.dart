@@ -226,9 +226,10 @@ class _HomePageState extends State<HomePage> {
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black87]),
+                    // Diyalog arka planı gradyanı ve amber çerçeve
+                    gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black87], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(20.r),
-                    border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                    border: Border.all(color: Colors.amber.withOpacity(0.7), width: 1.5),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -330,6 +331,11 @@ class _HomePageState extends State<HomePage> {
                                     await _createOrEditAlarm(selectedMarket!, formattedSymbol, selectedPercentage!);
                                   }
                                 : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.amber.shade600,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                            ),
                             child: Text(localizations.setAlarm),
                           ),
                         ],
@@ -402,7 +408,7 @@ class _HomePageState extends State<HomePage> {
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20.r),
-                    border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                    border: Border.all(color: Colors.amber.withOpacity(0.7), width: 1.5),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -517,6 +523,11 @@ class _HomePageState extends State<HomePage> {
                                 Navigator.pop(context);
                               }
                             },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.amber.shade600,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                            ),
                             child: Text(localizations.save),
                           ),
                         ],
@@ -538,11 +549,12 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: Colors.grey.shade800),
+        // Daha belirgin ve şık border
+        border: Border.all(color: Colors.amber.shade600.withOpacity(0.3), width: 1),
       ),
       child: Row(
         children: [
-          Icon(icon, color: Colors.amber.shade600, size: 20.sp),
+          Icon(icon, color: Colors.amber.shade400, size: 20.sp),
           SizedBox(width: 12.w),
           Expanded(child: child),
         ],
@@ -555,120 +567,180 @@ class _HomePageState extends State<HomePage> {
     Provider.of<LocaleProvider>(context); 
     final user = _auth.currentUser;
     final localizations = AppLocalizations.of(context)!;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.black,
-        title: Text(user?.displayName ?? localizations.marketWatcher, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22.sp)),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.settings_outlined, color: Colors.amber, size: 30.sp),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage())),
-          ),
-        ],
+    return Container(
+      // Ana ekran arka planı gradyanı eklendi
+      decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black], begin: Alignment.topCenter, end: Alignment.bottomCenter),
       ),
-      body: Padding(
-        padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
-        child: Column(
-          children: [
-            Container(
-              height: MediaQuery.of(context).size.height * 0.55,
-              padding: EdgeInsets.all(16.w),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade900.withOpacity(0.5),
-                borderRadius: BorderRadius.circular(20.r),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(localizations.followedAlarms, style: TextStyle(color: Colors.amber.shade400, fontSize: 20.sp, fontWeight: FontWeight.bold)),
-                  const Divider(color: Colors.grey, height: 24),
-                  Expanded(
-                    child: _loading
-                        ? const Center(child: CircularProgressIndicator(color: Colors.amber))
-                        : _followedItems.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.notifications_off_outlined, color: Colors.grey, size: 48.sp),
-                                    SizedBox(height: 16.h),
-                                    Text(localizations.noAlarmsYet, style: TextStyle(color: Colors.grey, fontSize: 16.sp)),
-                                  ],
-                                ),
-                              )
-                            : RefreshIndicator(
-                                onRefresh: _fetchUserAlarms,
-                                child: ListView.builder(
-                                  itemCount: _followedItems.length,
-                                  itemBuilder: (context, index) {
-                                    final item = _followedItems[index];
-                                    String symbol = item['symbol'] ?? '';
-                                    final String displaySymbol = item['market'] == 'METALS'? _getLocalizedSymbolName(symbol, localizations): (item['market'] == 'CRYPTO' && symbol.endsWith('USDT')? symbol.substring(0, symbol.length - 4): symbol);
-
-                                    return Slidable(
-                                      key: ValueKey(item['id']),
-                                      endActionPane: ActionPane(
-                                        motion: const DrawerMotion(),
-                                        extentRatio: 0.25,
-                                        children: [
-                                          SlidableAction(
-                                            onPressed: (context) {
-                                              setState(() => _followedItems.removeAt(index));
-                                              _deleteAlarm(item['id']);
-                                            },
-                                            backgroundColor: Colors.red.shade700,
-                                            foregroundColor: Colors.white,
-                                            icon: Icons.delete_forever,
-                                            label: localizations.delete,
-                                            borderRadius: BorderRadius.circular(12.r),
-                                          ),
-                                        ],
-                                      ),
-                                      child: ListTile(
-                                        contentPadding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                                        leading: CircleAvatar(
-                                          backgroundColor: Colors.amber.withOpacity(0.1),
-                                          child: Icon(Icons.notifications_active_outlined, color: Colors.amber.shade400),
-                                        ),
-                                        // Artık burada çevrilmiş veya düzenlenmiş displaySymbol'ı kullanıyoruz
-                                        title: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.sp)),
-                                        subtitle: Text(_getLocalizedMarketName(item['market'] ?? '', localizations), style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp)),
-                                        trailing: Text('%${item['percentage']}', style: TextStyle(color: Colors.white, fontSize: 16.sp, fontWeight: FontWeight.w500)),
-                                        onTap: () => _openEditAlarmDialog(context, item, localizations),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 24.h),
-            SizedBox(
-              width: double.infinity,
-              height: 55.h,
-              child: ElevatedButton.icon(
-                icon: Icon(Icons.add_alert_rounded, size: 28.sp),
-                label: Text(localizations.setAlarm, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r))),
-                onPressed: () => _openSetAlarmDialog(context, localizations),
-              ),
-            ),
-            SizedBox(height: 12.h),
-            SizedBox(
-              width: double.infinity,
-              height: 55.h,
-              child: ElevatedButton.icon(
-                icon: Icon(Icons.bar_chart_rounded, size: 28.sp),
-                label: Text(localizations.watchMarkets, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade800, foregroundColor: Colors.amber, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r))),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WatchMarketPage())),
-              ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent, // Gradyanın görünmesi için şeffaf yapıldı
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent, // Şeffaf AppBar
+          title: Text(user?.displayName ?? localizations.marketWatcher, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22.sp)),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.settings_outlined, color: Colors.amber.shade400, size: 30.sp),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage())),
             ),
           ],
+        ),
+        body: Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
+          child: Column(
+            children: [
+              // Ana Kart: Daha belirgin bir gölge ve border
+              Container(
+                height: MediaQuery.of(context).size.height * 0.55,
+                padding: EdgeInsets.all(16.w),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade900.withOpacity(0.6), // Hafif şeffaflık
+                  borderRadius: BorderRadius.circular(20.r),
+                  border: Border.all(color: Colors.amber.withOpacity(0.2), width: 1.0),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 15, offset: const Offset(0, 10)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(localizations.followedAlarms, style: TextStyle(color: Colors.amber.shade400, fontSize: 20.sp, fontWeight: FontWeight.bold)),
+                    const Divider(color: Color(0xFF333333), height: 24),
+                    Expanded(
+                      child: _loading
+                          ? const Center(child: CircularProgressIndicator(color: Colors.amber))
+                          : _followedItems.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.notifications_off_outlined, color: Colors.grey.shade600, size: 48.sp),
+                                      SizedBox(height: 16.h),
+                                      Text(localizations.noAlarmsYet, style: TextStyle(color: Colors.grey.shade500, fontSize: 16.sp)),
+                                    ],
+                                  ),
+                                )
+                              : RefreshIndicator(
+                                  onRefresh: _fetchUserAlarms,
+                                  child: ListView.separated(
+                                    itemCount: _followedItems.length,
+                                    // HATA GİDERİLDİ: Artık ListView.separated'a uygun bir separator veriyor
+                                    separatorBuilder: (context, index) => const Divider(color: Colors.transparent, height: 1), 
+                                    itemBuilder: (context, index) {
+                                      final item = _followedItems[index];
+                                      String symbol = item['symbol'] ?? '';
+                                      final String displaySymbol = item['market'] == 'METALS'? _getLocalizedSymbolName(symbol, localizations): (item['market'] == 'CRYPTO' && symbol.endsWith('USDT')? symbol.substring(0, symbol.length - 4): symbol);
+
+                                      return Slidable(
+                                        key: ValueKey(item['id']),
+                                        endActionPane: ActionPane(
+                                          motion: const BehindMotion(), // Daha şık bir Slidable efekti
+                                          extentRatio: 0.25,
+                                          children: [
+                                            SlidableAction(
+                                              onPressed: (context) {
+                                                setState(() => _followedItems.removeAt(index));
+                                                _deleteAlarm(item['id']);
+                                              },
+                                              backgroundColor: Colors.red.shade700,
+                                              foregroundColor: Colors.white,
+                                              icon: Icons.delete_forever,
+                                              label: localizations.delete,
+                                              borderRadius: BorderRadius.circular(12.r),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: index.isEven ? Colors.black.withOpacity(0.05) : Colors.transparent, // Zebra şerit efekti
+                                            borderRadius: BorderRadius.circular(8.r)
+                                          ),
+                                          child: ListTile(
+                                            contentPadding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                            leading: CircleAvatar(
+                                              backgroundColor: Colors.amber.withOpacity(0.15),
+                                              child: Icon(Icons.notifications_active_outlined, color: Colors.amber.shade400, size: 24.sp),
+                                            ),
+                                            title: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.sp)),
+                                            subtitle: Text(_getLocalizedMarketName(item['market'] ?? '', localizations), style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp)),
+                                            trailing: Text(
+                                              '%${item['percentage']}', 
+                                              style: TextStyle(
+                                                color: Colors.amber.shade300, 
+                                                fontSize: 16.sp, 
+                                                fontWeight: FontWeight.w600
+                                              )
+                                            ),
+                                            onTap: () => _openEditAlarmDialog(context, item, localizations),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    // ListTiles arasında sadece Divider kullanılıyor
+                                    // separatorBuilder ile Transparent Divider verildi.
+                                  ),
+                                ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 24.h),
+              // Alarm Kur Butonu: Hata Giderildi. Custom butona çevrildi.
+              SizedBox(
+                width: double.infinity,
+                height: 55.h,
+                // ElevatedButton yerine Material/InkWell kombinasyonu kullanıldı
+                child: Material(
+                  color: Colors.transparent,
+                  // Butonun dış gölgesi ve köşeleri
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                  elevation: 10,
+                  shadowColor: Colors.amber.withOpacity(0.5),
+                  child: InkWell(
+                    onTap: () => _openSetAlarmDialog(context, localizations),
+                    borderRadius: BorderRadius.circular(16.r),
+                    child: Ink(
+                      // HATA GİDERİLDİ: Bu Ink widget'ı, ElevatedButton'ın child'ı olmaktan çıktı.
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Colors.amber, Colors.orangeAccent]),
+                        borderRadius: BorderRadius.circular(16.r),
+                      ),
+                      child: Container(
+                        alignment: Alignment.center,
+                        constraints: BoxConstraints.expand(height: 55.h),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_alert_rounded, size: 28.sp, color: Colors.black),
+                            SizedBox(width: 12.w),
+                            Text(localizations.setAlarm, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.black)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 12.h),
+              // Piyasaları İzle Butonu (Unchanged)
+              SizedBox(
+                width: double.infinity,
+                height: 55.h,
+                child: ElevatedButton.icon(
+                  icon: Icon(Icons.bar_chart_rounded, size: 28.sp),
+                  label: Text(localizations.watchMarkets, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade800.withOpacity(0.7), 
+                    foregroundColor: Colors.amber.shade400, 
+                    elevation: 5,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                    side: BorderSide(color: Colors.amber.withOpacity(0.3)), // Hafif amber çerçeve
+                  ),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WatchMarketPage())),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

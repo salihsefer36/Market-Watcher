@@ -37,29 +37,22 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
     super.dispose();
   }
 
-// watch_market_page.dart içinde _WatchMarketPageState sınıfı
-
-Future<void> fetchAllDataEfficiently() async {
+  Future<void> fetchAllDataEfficiently() async {
     if (!mounted) return;
 
     final localizations = AppLocalizations.of(context)!;
     final userUid = FirebaseAuth.instance.currentUser?.uid;
     
-    // **KRİTİK KONTROL**: Backend'iniz artık UID'yi zorunlu kılıyor.
     if (userUid == null) {
-        // Eğer kullanıcı girişi yapılmamışsa, API'yi çağırmadan No Data Found göster.
         if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(localizations.pleaseSignInFirst)));
             setState(() => loading = false);
         }
-        // Boş bir veri setiyle geri dönmek yerine, burada hata vermeden durmak en sağlıklısı.
         return; 
     }
     
-    // API URL'sini hazırla (user_uid zorunlu olduğu için direkt eklenir)
     String apiUrl = "$backendBaseUrl/prices?user_uid=$userUid";
     
-    // Yükleniyor durumunu güncelle
     if (!loading) { 
       setState(() => loading = true);
     }
@@ -67,11 +60,9 @@ Future<void> fetchAllDataEfficiently() async {
     marketData.forEach((key, value) => value.clear());
 
     try {
-      // GÜNCELLENMİŞ API İSTEĞİ
       final res = await http.get(Uri.parse(apiUrl)).timeout(const Duration(seconds: 10));
       
       if (res.statusCode == 200) {
-        // ... (Veri işleme kısmı aynı kalır)
         if (!mounted) return;
         final List<dynamic> allData = jsonDecode(res.body);
         final newMarketData = Map<String, List<Map<String, dynamic>>>.from(marketData);
@@ -104,47 +95,54 @@ Future<void> fetchAllDataEfficiently() async {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.amber),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          localizations.watchMarketChart,
-          style: TextStyle(
-            color: Colors.amber,
-            fontWeight: FontWeight.bold,
-            fontSize: 22.sp,
+    return Container(
+      // Ana ekran arka planı gradyanı eklendi
+      decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent, // Gradyanın görünmesi için şeffaf yapıldı
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.transparent, // Şeffaf AppBar
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: Colors.amber.shade400),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text(
+            localizations.watchMarketChart,
+            style: TextStyle(
+              color: Colors.white, // Başlık rengi
+              fontWeight: FontWeight.bold,
+              fontSize: 22.sp,
+            ),
+          ),
+          bottom: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            indicatorColor: Colors.amber.shade400,
+            labelColor: Colors.amber.shade400,
+            unselectedLabelColor: Colors.grey.shade500,
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+            tabs: marketData.keys.map((market) {
+              String tabText = market;
+              if (market == "CRYPTO") tabText = localizations.crypto;
+              if (market == "METALS") tabText = localizations.metals;
+              return Tab(text: tabText);
+            }).toList(),
           ),
         ),
-        backgroundColor: Colors.black,
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          indicatorColor: Colors.amber,
-          labelColor: Colors.amber,
-          unselectedLabelColor: Colors.grey,
-          labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
-          tabs: marketData.keys.map((market) {
-            String tabText = market;
-            if (market == "CRYPTO") tabText = localizations.crypto;
-            if (market == "METALS") tabText = localizations.metals;
-            return Tab(text: tabText);
-          }).toList(),
-        ),
+        body: loading
+            ? Center(child: CircularProgressIndicator(color: Colors.amber.shade400))
+            : TabBarView(
+                controller: _tabController,
+                children: marketData.keys.map((market) {
+                  final data = marketData[market] ?? [];
+                  final filteredData = data.where((item) => item['price'] != null && item['price'] > 0).toList();
+                  return _buildMarketList(market, filteredData);
+                }).toList(),
+              ),
       ),
-      backgroundColor: Colors.black,
-      body: loading
-          ? const Center(child: CircularProgressIndicator(color: Colors.amber))
-          : TabBarView(
-              controller: _tabController,
-              children: marketData.keys.map((market) {
-                final data = marketData[market] ?? [];
-                final filteredData = data.where((item) => item['price'] != null && item['price'] > 0).toList();
-                return _buildMarketList(market, filteredData);
-              }).toList(),
-            ),
     );
   }
 
@@ -152,25 +150,29 @@ Future<void> fetchAllDataEfficiently() async {
     final localizations = AppLocalizations.of(context)!;
     return Column(
       children: [
-        Padding(
+        // Başlıklar: Daha net bir çizgi ve font
+        Container(
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFF333333), width: 1.0)),
+          ),
           child: Row(
             children: [
-              Expanded(flex: 6, child: Text(localizations.symbol, style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
-              Expanded(flex: 10, child: Text(localizations.name, style: TextStyle(color: Colors.grey, fontSize: 12.sp))),
-              Expanded(flex: 7, child: Align(alignment: Alignment.centerRight, child: Text(localizations.price, style: TextStyle(color: Colors.grey, fontSize: 12.sp)))),
+              Expanded(flex: 6, child: Text(localizations.symbol, style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp, fontWeight: FontWeight.bold))),
+              Expanded(flex: 10, child: Text(localizations.name, style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp, fontWeight: FontWeight.bold))),
+              Expanded(flex: 7, child: Align(alignment: Alignment.centerRight, child: Text(localizations.price, style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp, fontWeight: FontWeight.bold)))),
             ],
           ),
         ),
-        const Divider(color: Color(0xFF222222), height: 1),
         Expanded(
           child: data.isEmpty
-              ? Center(child: Text(localizations.noDataFound, style: TextStyle(color: Colors.grey, fontSize: 16.sp)))
+              ? Center(child: Text(localizations.noDataFound, style: TextStyle(color: Colors.grey.shade500, fontSize: 16.sp)))
               : RefreshIndicator(
                   onRefresh: fetchAllDataEfficiently,
+                  color: Colors.amber.shade400,
                   child: ListView.separated(
                     itemCount: data.length,
-                    separatorBuilder: (context, index) => const Divider(color: Color(0xFF222222), height: 1, indent: 16, endIndent: 16),
+                    separatorBuilder: (context, index) => const Divider(color: Color(0xFF333333), height: 1), // Daha belirgin ayırıcı
                     itemBuilder: (context, index) {
                       final item = data[index];
                       final priceValue = item['price'] as num;
@@ -203,9 +205,13 @@ Future<void> fetchAllDataEfficiently() async {
                       
                       String displayPrice = "${priceValue.toStringAsFixed(2)}$currencySymbol";
                       String displayName;
+                      
+                      // Metadata (market, name, symbol) alınırken null kontrolü
+                      final String? itemSymbol = item['symbol']?.toString();
+                      final String? itemName = item['name']?.toString();
 
                       if (market == "METALS") {
-                          final metalName = item['symbol']?.toString() ?? '';
+                          final metalName = itemSymbol ?? '';
                           String localizedMetalName = metalName; 
                           
                           if (metalName == "Altın") {
@@ -218,13 +224,14 @@ Future<void> fetchAllDataEfficiently() async {
 
                           displayName = "${AppLocalizations.of(context)!.gram} $localizedMetalName";
                       }else {
-                          displayName = item['name'] ?? item['symbol'] ?? '';
+                          displayName = itemName ?? itemSymbol ?? '';
                       }
 
-                      String displaySymbol = item['symbol'] ?? '';
+                      String displaySymbol = itemSymbol ?? '';
                       if (market == "CRYPTO" && displaySymbol.endsWith('USDT')) {
                         displaySymbol = displaySymbol.substring(0, displaySymbol.length - 4); // Cut 4 character (USDT)
                       }else if (market == "METALS") {
+                          // Metal sembollerini de localize etme
                           if (displaySymbol == "Altın") {
                               displaySymbol = AppLocalizations.of(context)!.metalGold;
                           } else if (displaySymbol == "Gümüş") {
@@ -233,14 +240,53 @@ Future<void> fetchAllDataEfficiently() async {
                               displaySymbol = AppLocalizations.of(context)!.metalCopper;
                           }
                       }
-                      return Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-                        child: Row(
-                          children: [
-                            Expanded(flex: 6, child: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.sp))),
-                            Expanded(flex: 10, child: Text(displayName, style: TextStyle(color: Colors.grey.shade400, fontSize: 13.sp), overflow: TextOverflow.ellipsis)),
-                            Expanded(flex: 7, child: Align(alignment: Alignment.centerRight, child: Text(displayPrice, style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 14.sp, letterSpacing: 0.5)))),
-                          ],
+
+                      // Liste elemanına hafif arka plan rengi ve hover efekti ekleme
+                      return Container(
+                        color: index.isEven ? Colors.black.withOpacity(0.1) : Colors.transparent,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 6, 
+                                child: Text(
+                                  displaySymbol, 
+                                  style: TextStyle(
+                                    color: Colors.white, 
+                                    fontWeight: FontWeight.w600, // Daha belirgin
+                                    fontSize: 14.sp
+                                  )
+                                )
+                              ),
+                              Expanded(
+                                flex: 10, 
+                                child: Text(
+                                  displayName, 
+                                  style: TextStyle(
+                                    color: Colors.grey.shade400, 
+                                    fontSize: 13.sp
+                                  ), 
+                                  overflow: TextOverflow.ellipsis
+                                )
+                              ),
+                              Expanded(
+                                flex: 7, 
+                                child: Align(
+                                  alignment: Alignment.centerRight, 
+                                  child: Text(
+                                    displayPrice, 
+                                    style: TextStyle(
+                                      color: Colors.amber.shade300, 
+                                      fontWeight: FontWeight.bold, 
+                                      fontSize: 14.sp, 
+                                      letterSpacing: 0.5
+                                    )
+                                  )
+                                )
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
