@@ -781,36 +781,75 @@ async def get_crypto_prices(n=50):
 async def get_all_prices(user_uid: Optional[str] = Query(None)):
     global _prices_cache
     
+    if user_uid is None:
+        raise HTTPException(status_code=400, detail="Fiyatları çekmek için Kullanıcı ID'si gereklidir.")
+
+    try:
+        with Session(engine) as session:
+            user = session.get(User, user_uid)
+            language_code = user.language_code if user and user.language_code else 'en'
+        target_currency = LANGUAGE_CURRENCY_MAP.get(language_code, 'USD')
+    except Exception as e:
+        print(f"Kullanıcı ayarları alınırken hata: {e}")
+        target_currency = 'USD'
+
     async with _prices_cache_lock:
-        # Cache'i kontrol et
-        if _prices_cache.get("timestamp") and (datetime.utcnow() - _prices_cache["timestamp"]) < CACHE_DURATION:
-            print("Cache'den yanıt veriliyor.")
-            return _prices_cache["data"]
-
-        # Cache boş veya süresi geçmişse, verileri yeniden çek
-        print("Cache boş veya süresi geçmiş. API'ler çağrılıyor.")
-        if user_uid is None:
-            raise HTTPException(status_code=400, detail="Fiyatları çekmek için Kullanıcı ID'si gereklidir.")
-
-        bist_task = get_bist_prices()
-        nasdaq_task = get_nasdaq_prices()
-        crypto_task = get_crypto_prices()
+        base_data_to_fetch = False
+        metals_data_to_fetch = False
         
-        # get_metals senkron olduğu için doğrudan çağırıyoruz
-        metals_dict = await get_metals(user_uid=user_uid) 
+        # 1. Sabit veriler (BIST, NASDAQ, CRYPTO) için ana cache'i kontrol et
+        base_cache = _prices_cache["base_data"]
+        if not base_cache.get("timestamp") or (datetime.utcnow() - base_cache["timestamp"]) >= CACHE_DURATION:
+            print("Ana cache (BIST, NASDAQ, CRYPTO) süresi geçmiş. API'ler çağrılacak.")
+            base_data_to_fetch = True
+        else:
+            print("Ana cache (BIST, NASDAQ, CRYPTO) kullanılıyor.")
+            bist, nasdaq, crypto = base_cache["data"]
+
+        # 2. Metaller için para birimine özel cache'i kontrol et
+        metals_cache = _prices_cache["metals_data"].get(target_currency, {})
+        if not metals_cache.get("timestamp") or (datetime.utcnow() - metals_cache["timestamp"]) >= CACHE_DURATION:
+            print(f"Metaller için '{target_currency}' cache'i süresi geçmiş. Hesaplama yapılacak.")
+            metals_data_to_fetch = True
+        else:
+            print(f"Metaller için '{target_currency}' cache'i kullanılıyor.")
+            metals = metals_cache["data"]
+
+        # 3. Sadece cache'de olmayan verileri API'lerden çek
+        tasks_to_run = []
+        if base_data_to_fetch:
+            tasks_to_run.extend([get_bist_prices(), get_nasdaq_prices(), get_crypto_prices()])
+        if metals_data_to_fetch:
+            tasks_to_run.append(get_metals(user_uid=user_uid))
+
+        if tasks_to_run:
+            results = await asyncio.gather(*tasks_to_run)
+            
+            result_index = 0
+            if base_data_to_fetch:
+                bist, nasdaq, crypto = results[result_index:result_index+3]
+                result_index += 3
+                # Ana cache'i güncelle
+                _prices_cache["base_data"] = {
+                    "data": (bist, nasdaq, crypto),
+                    "timestamp": datetime.utcnow()
+                }
+
+            if metals_data_to_fetch:
+                metals_dict = results[result_index]
+                metals = [{"market": "METALS", "symbol": k, "price": v} for k, v in metals_dict.items()]
+                # Para birimine özel metal cache'ini güncelle
+                _prices_cache["metals_data"][target_currency] = {
+                    "data": metals,
+                    "timestamp": datetime.utcnow()
+                }
         
-        # API çağrılarını aynı anda çalıştır
-        bist, nasdaq, crypto = await asyncio.gather(bist_task, nasdaq_task, crypto_task)
-
-        metals = [{"market": "METALS", "symbol": k, "price": v} for k, v in metals_dict.items()]
-        bist = [{"market": "BIST", **item} for item in bist]
-        nasdaq = [{"market": "NASDAQ", **item} for item in nasdaq]
-        crypto = [{"market": "CRYPTO", **item} for item in crypto]
-        all_data = bist + nasdaq + crypto + metals
-
-        # Cache'i güncelle
-        _prices_cache["data"] = all_data
-        _prices_cache["timestamp"] = datetime.utcnow()
+        # Sonuçları formatla ve birleştir
+        bist_formatted = [{"market": "BIST", **item} for item in bist]
+        nasdaq_formatted = [{"market": "NASDAQ", **item} for item in nasdaq]
+        crypto_formatted = [{"market": "CRYPTO", **item} for item in crypto]
+        
+        all_data = bist_formatted + nasdaq_formatted + crypto_formatted + metals
         
         return all_data
     
