@@ -597,7 +597,7 @@ async def get_metals(user_uid: str) -> Dict[str, Optional[float]]:
         
         loop = asyncio.get_event_loop()
         data = await loop.run_in_executor(None, 
-            lambda: yf.download(required_tickers, period="1d", progress=False)['Close']
+            lambda: yf.download(required_tickers, period="1d", progress=False, auto_adjust=True)['Close']
         )
 
         if data is None or data.empty:
@@ -731,7 +731,7 @@ async def get_bist_symbols_with_name():
 
 async def get_bist_prices():
     try:
-        data = yf.download(BIST100_SYMBOLS, period="1d", progress=False)['Close']
+        data = yf.download(BIST100_SYMBOLS, period="1d", progress=False, auto_adjust=True)['Close']
     except Exception as e:
         print(f"Error downloading BIST data: {e}")
         data = None
