@@ -804,8 +804,7 @@ async def get_all_prices(user_uid: Optional[str] = Query(None)):
         
         # API çağrılarını aynı anda çalıştır
         bist, nasdaq, crypto = await asyncio.gather(bist_task, nasdaq_task, crypto_task)
-        
-        # Sonuçları birleştir
+
         metals = [{"market": "METALS", "symbol": k, "price": v} for k, v in metals_dict.items()]
         bist = [{"market": "BIST", **item} for item in bist]
         nasdaq = [{"market": "NASDAQ", **item} for item in nasdaq]
