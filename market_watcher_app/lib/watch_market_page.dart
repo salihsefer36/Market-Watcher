@@ -214,11 +214,11 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
                           final metalName = itemSymbol ?? '';
                           String localizedMetalName = metalName; 
                           
-                          if (metalName == "Altın") {
+                          if (metalName == "ALTIN") {
                               localizedMetalName = AppLocalizations.of(context)!.metalGold;
-                          } else if (metalName == "Gümüş") {
+                          } else if (metalName == "GÜMÜŞ") {
                               localizedMetalName = AppLocalizations.of(context)!.metalSilver;
-                          } else if (metalName == "Bakır") {
+                          } else if (metalName == "BAKIR") {
                               localizedMetalName = AppLocalizations.of(context)!.metalCopper;
                           }
 
@@ -232,11 +232,11 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
                         displaySymbol = displaySymbol.substring(0, displaySymbol.length - 4); // Cut 4 character (USDT)
                       }else if (market == "METALS") {
                           // Metal sembollerini de localize etme
-                          if (displaySymbol == "Altın") {
+                          if (displaySymbol == "ALTIN") {
                               displaySymbol = AppLocalizations.of(context)!.metalGold;
-                          } else if (displaySymbol == "Gümüş") {
+                          } else if (displaySymbol == "GÜMÜŞ") {
                               displaySymbol = AppLocalizations.of(context)!.metalSilver;
-                          } else if (displaySymbol == "Bakır") {
+                          } else if (displaySymbol == "BAKIR") {
                               displaySymbol = AppLocalizations.of(context)!.metalCopper;
                           }
                       }
