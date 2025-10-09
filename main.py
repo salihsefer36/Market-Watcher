@@ -468,6 +468,8 @@ def send_push_notification(token: str, title: str, body: str):
 # ----------------------------
 # Price Fetch
 # ----------------------------
+_exchange_rate_cache = {}
+
 async def fetch_price(symbol: str):
     symbol = symbol.upper()
     metals_yf = {"ALTIN": "GC=F", "GÜMÜŞ": "SI=F", "BAKIR": "HG=F"}
@@ -475,23 +477,37 @@ async def fetch_price(symbol: str):
     if symbol in metals_yf:
         try:
             loop = asyncio.get_event_loop()
-            usdtry_ticker = await loop.run_in_executor(None, lambda: yf.Ticker("TRY=X"))
-            usdtry = usdtry_ticker.history(period="1d")['Close'].iloc[-1]
+            now = datetime.utcnow()
             
+            # Dolar/TL kurunu cache'den okumayı dene
+            usdtry = None
+            if "USDTRY" in _exchange_rate_cache:
+                timestamp, rate = _exchange_rate_cache["USDTRY"]
+                if (now - timestamp) < timedelta(minutes=60): # 1 saatlik cache
+                    usdtry = rate
+            
+            # Cache'de yoksa veya süresi geçmişse yeniden çek
+            if usdtry is None:
+                print("Dolar/TL kuru yeniden çekiliyor...")
+                usdtry_ticker = await loop.run_in_executor(None, lambda: yf.Ticker("TRY=X"))
+                usdtry = usdtry_ticker.history(period="1d", auto_adjust=True)['Close'].iloc[-1]
+                _exchange_rate_cache["USDTRY"] = (now, usdtry)
+
             metal_ticker = await loop.run_in_executor(None, lambda: yf.Ticker(metals_yf[symbol]))
-            price_usd = metal_ticker.history(period="1d")['Close'].iloc[-1]
+            price_usd = metal_ticker.history(period="1d", auto_adjust=True)['Close'].iloc[-1]
             
             return round((price_usd * usdtry) / 31.1035, 2)
         except Exception as e:
             print(f"Error fetching metal {symbol} with yfinance: {e}")
             return None
         
+    # Fonksiyonun geri kalanı aynı...
     if symbol.endswith(".IS") or symbol in BIST_FALLBACK_NAMES:
         try:
             yf_symbol = symbol if symbol.endswith(".IS") else f"{symbol}.IS"
             loop = asyncio.get_event_loop()
             ticker_obj = await loop.run_in_executor(None, lambda: yf.Ticker(yf_symbol))
-            price = ticker_obj.history(period="1d")['Close'].iloc[-1]
+            price = ticker_obj.history(period="1d", auto_adjust=True)['Close'].iloc[-1]
             return round(float(price), 2)
         except Exception as e:
             print(f"Error fetching BIST {symbol} with yfinance: {e}")
