@@ -5,6 +5,7 @@ import traceback
 from typing import Optional, List, Dict
 import json
 
+import pandas as pd
 from pydantic import BaseModel, Field as PydanticField
 from fastapi import FastAPI, HTTPException, Query, Path, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -233,57 +234,160 @@ async def check_alerts_for_user(user: User, prices: Dict):
             alerts_to_delete_ids.append(alert.id)
     return alerts_to_delete_ids
 
+# Bu fonksiyonları kodunuzun uygun bir yerine (örn: price_fetcher.py veya main.py'ın üst kısımları) ekleyebilirsiniz.
+# Bunlar, toplu veri çekme işlemini yapacak yardımcı fonksiyonlardır.
+
+async def fetch_bist_batch(symbols: set) -> dict:
+    """Verilen BIST sembol listesi için yfinance'tan toplu fiyat çeker."""
+    if not symbols:
+        return {}
+    
+    prices = {}
+    yf_symbols = [s if s.endswith(".IS") else f"{s}.IS" for s in symbols]
+    try:
+        data = yf.download(yf_symbols, period="1d", progress=False, auto_adjust=True)['Close']
+        if data.empty:
+            return {}
+        
+        # yfinance'tan gelen sonuç tek bir sembol içinse Series, çoklu ise DataFrame olur.
+        if isinstance(data, pd.Series): # Tek sembol durumu
+             if not data.dropna().empty:
+                short_symbol = yf_symbols[0].split('.')[0]
+                prices[short_symbol] = round(float(data.dropna().iloc[-1]), 2)
+        else: # Çoklu sembol durumu
+            for yf_symbol in yf_symbols:
+                short_symbol = yf_symbol.split('.')[0]
+                if yf_symbol in data and not data[yf_symbol].dropna().empty:
+                    prices[short_symbol] = round(float(data[yf_symbol].dropna().iloc[-1]), 2)
+    except Exception as e:
+        print(f"KRİTİK HATA (Toplu BIST): {e}")
+    return prices
+
+async def fetch_nasdaq_batch(symbols: set) -> dict:
+    """Verilen NASDAQ sembol listesi için Finnhub'tan toplu fiyat çeker."""
+    if not symbols:
+        return {}
+    
+    prices = {}
+    async with httpx.AsyncClient(timeout=15) as client:
+        tasks = [client.get(f"{FINNHUB_BASE}/quote", params={"symbol": sym, "token": FINNHUB_API_KEY}) for sym in symbols]
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for sym, r in zip(symbols, responses):
+            if not isinstance(r, Exception) and r.status_code == 200:
+                price_val = r.json().get("c")
+                if price_val:
+                    prices[sym] = round(price_val, 2)
+    return prices
+
+async def fetch_crypto_batch(symbols: set) -> dict:
+    """Verilen CRYPTO sembol listesi için Binance'ten toplu fiyat çeker."""
+    if not symbols:
+        return {}
+        
+    prices = {}
+    # Binance API için sembollerin sonuna "USDT" eklenir
+    binance_symbols = [f"{s.upper()}USDT" for s in symbols]
+    async with httpx.AsyncClient(timeout=15) as client:
+        tasks = [client.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": s}) for s in binance_symbols]
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for original_sym, r in zip(symbols, responses):
+            if not isinstance(r, Exception) and r.status_code == 200:
+                data = r.json()
+                price_val = data.get("price")
+                if price_val:
+                    prices[original_sym] = round(float(price_val), 2)
+    return prices
+
+async def fetch_metals_batch(symbols: set) -> dict:
+    """Verilen METAL sembolleri (ALTIN, GÜMÜŞ vb.) için toplu fiyat çeker."""
+    if not symbols:
+        return {}
+
+    prices = {}
+    metals_yf_map = {"ALTIN": "GC=F", "GÜMÜŞ": "SI=F", "BAKIR": "HG=F"}
+    # Sadece istenen metallerin yf ticker'larını ve her zaman gereken TRY=X'i al
+    yf_tickers_to_fetch = {metals_yf_map[s] for s in symbols if s in metals_yf_map}
+    yf_tickers_to_fetch.add("TRY=X")
+    
+    try:
+        data = yf.download(list(yf_tickers_to_fetch), period="1d", progress=False, auto_adjust=True)['Close']
+        if data.empty:
+            return {}
+
+        usdtry_rate = data["TRY=X"].dropna().iloc[-1]
+        
+        for metal_name, yf_ticker in metals_yf_map.items():
+            if metal_name in symbols and yf_ticker in data and not data[yf_ticker].dropna().empty:
+                price_usd = data[yf_ticker].dropna().iloc[-1]
+                # Gram/TL fiyatını hesapla
+                prices[metal_name] = round((price_usd * usdtry_rate) / 31.1035, 2)
+    except Exception as e:
+        print(f"KRİTİK HATA (Toplu METALS): {e}")
+    return prices
+
+# --- ANA FONKSİYON ---
+
 async def run_price_checks():
     print("Arka plan fiyat kontrolü başladı...")
     now = datetime.utcnow()
     try:
         with Session(engine) as session:
+            # 1. ADIM: KULLANICILARI VE ALARMLARI ÇEKME (Değişiklik Yok)
             query = select(User).options(joinedload(User.alerts))
             all_users = session.exec(query).unique().all()
-
             if not all_users:
-                print("Kontrol edilecek kullanıcı bulunamadı.")
-                return
+                print("Kontrol edilecek kullanıcı bulunamadı."); return
 
+            # 2. ADIM: KONTROL ZAMANI GELEN KULLANICILARI FİLTRELEME (Değişiklik Yok)
             users_to_check = []
-            symbols_to_fetch = set()
-
             for user in all_users:
+                # ... (plan bazlı kontrol mantığı aynı kalacak) ...
                 plan = user.plan
                 last_checked = user.last_checked_at or datetime.min
-                
-                should_check = False
-               
-                check_interval = timedelta(minutes=10) # Default: free plan
-                if plan == 'ultra':
-                    check_interval = timedelta(minutes=1)
-                elif plan == 'pro':
-                    check_interval = timedelta(minutes=3)
-
+                check_interval = timedelta(minutes=10)
+                if plan == 'ultra': check_interval = timedelta(minutes=1)
+                elif plan == 'pro': check_interval = timedelta(minutes=3)
                 if (now - last_checked) >= check_interval:
-                    should_check = True
-
-                if should_check:
                     users_to_check.append(user)
-                    for alert in user.alerts:
-                        symbols_to_fetch.add(alert.symbol)
-
-            if not users_to_check:
-                print("Kontrol zamanı gelen kullanıcı yok. Görev sonlandırıldı.")
-                return
-
-            prices = {}
-            if symbols_to_fetch:
-                price_tasks = [fetch_price(symbol) for symbol in symbols_to_fetch]
-                price_results = await asyncio.gather(*price_tasks)
-                for symbol, price in zip(symbols_to_fetch, price_results):
-                    if price is not None:
-                        prices[symbol] = price
             
+            if not users_to_check:
+                print("Kontrol zamanı gelen kullanıcı yok. Görev sonlandırıldı."); return
+
+            # 3. ADIM: SEMBOLLERİ PİYASALARINA GÖRE GRUPLAMA (YENİ VE ÖNEMLİ)
+            # Tek bir `symbols_to_fetch` seti yerine, piyasaya göre ayrılmış bir sözlük kullanıyoruz.
+            symbols_by_market = {"BIST": set(), "NASDAQ": set(), "CRYPTO": set(), "METALS": set()}
+            for user in users_to_check:
+                for alert in user.alerts:
+                    market = alert.market.upper()
+                    if market in symbols_by_market:
+                        symbols_by_market[market].add(alert.symbol)
+            
+            # 4. ADIM: HER PİYASA İÇİN TOPLU VERİ ÇEKME (YENİ VE EN KRİTİK OPTİMİZASYON)
+            prices = {}
+            
+            # Paralel olarak çalıştırılacak görevleri (task) hazırlıyoruz.
+            batch_tasks = []
+            if symbols_by_market["BIST"]:
+                batch_tasks.append(fetch_bist_batch(symbols_by_market["BIST"]))
+            if symbols_by_market["NASDAQ"]:
+                batch_tasks.append(fetch_nasdaq_batch(symbols_by_market["NASDAQ"]))
+            if symbols_by_market["CRYPTO"]:
+                batch_tasks.append(fetch_crypto_batch(symbols_by_market["CRYPTO"]))
+            if symbols_by_market["METALS"]:
+                batch_tasks.append(fetch_metals_batch(symbols_by_market["METALS"]))
+
+            # Tüm piyasaların verilerini `asyncio.gather` ile AYNI ANDA çekiyoruz.
+            if batch_tasks:
+                list_of_price_dicts = await asyncio.gather(*batch_tasks)
+                # Gelen fiyat sözlüklerini tek bir `prices` sözlüğünde birleştiriyoruz.
+                for price_dict in list_of_price_dicts:
+                    prices.update(price_dict)
+            
+            # 5. ADIM: ALARMLARI KONTROL ETME VE SİLME (Değişiklik Yok)
             total_deleted_alerts = []
             for user in users_to_check:
-                # check_alerts_for_user'a artık session göndermemize gerek yok,
-                # çünkü alarmlar zaten user objesinin içinde.
                 deleted_ids = await check_alerts_for_user(user, prices)
                 total_deleted_alerts.extend(deleted_ids)
                 user.last_checked_at = now
