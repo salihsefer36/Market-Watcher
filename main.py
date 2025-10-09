@@ -7,12 +7,13 @@ import json
 
 import pandas as pd
 from pydantic import BaseModel, Field as PydanticField
-from fastapi import FastAPI, HTTPException, Query, Path, BackgroundTasks, Depends, Header
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from sqlalchemy import func
 from sqlmodel import Relationship, SQLModel, Field, create_engine, Session, select, delete
 import yfinance as yf
+import redis.asyncio as redis
 
 import firebase_admin
 from firebase_admin import credentials, messaging
@@ -46,7 +47,7 @@ cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n").replace
 PLAN_LIMITS = {
     "free": 5,
     "pro": 20,
-    "ultra": float('inf') # float('inf') sonsuz anlamına gelir, yani limitsiz.
+    "ultra": float('inf') # float('inf') means infinity
 }
 
 if not firebase_admin._apps:
@@ -65,16 +66,12 @@ if DB_URL.startswith("postgres://"):
 
 engine = create_engine(DB_URL, echo=False)
 
-# ----------------------
-# --- YENİ CACHE MEKANİZMASI ---
-# /prices endpoint'i için basit bir in-memory cache
-# ----------------------
-_prices_cache: Dict = {
-    "base_data": {"timestamp": None, "data": None},
-    "metals_data": {}  
-}
-_prices_cache_lock = asyncio.Lock()
-CACHE_DURATION = timedelta(seconds=30) # Cache'in 30 saniye geçerli olmasını sağlar
+REDIS_URL = os.getenv("REDIS_URL")
+if not REDIS_URL:
+    raise ValueError("REDIS_URL ortam değişkeni bulunamadı! Railway'den veya .env'den geldiğinden emin olun.")
+
+# from_url fonksiyonu, bağlantı havuzunu (connection pool) otomatik yönetir.
+redis_conn = redis.from_url(REDIS_URL, decode_responses=True)
 
 # ----------------------
 # FastAPI Uygulaması
@@ -334,16 +331,15 @@ async def run_price_checks():
     now = datetime.utcnow()
     try:
         with Session(engine) as session:
-            # 1. ADIM: KULLANICILARI VE ALARMLARI ÇEKME (Değişiklik Yok)
+            # 1. ADIM: KULLANICILARI VE ALARMLARI ÇEKME
             query = select(User).options(joinedload(User.alerts))
             all_users = session.exec(query).unique().all()
             if not all_users:
                 print("Kontrol edilecek kullanıcı bulunamadı."); return
 
-            # 2. ADIM: KONTROL ZAMANI GELEN KULLANICILARI FİLTRELEME (Değişiklik Yok)
+            # 2. ADIM: KONTROL ZAMANI GELEN KULLANICILARI FİLTRELEME
             users_to_check = []
             for user in all_users:
-                # ... (plan bazlı kontrol mantığı aynı kalacak) ...
                 plan = user.plan
                 last_checked = user.last_checked_at or datetime.min
                 check_interval = timedelta(minutes=10)
@@ -355,8 +351,7 @@ async def run_price_checks():
             if not users_to_check:
                 print("Kontrol zamanı gelen kullanıcı yok. Görev sonlandırıldı."); return
 
-            # 3. ADIM: SEMBOLLERİ PİYASALARINA GÖRE GRUPLAMA (YENİ VE ÖNEMLİ)
-            # Tek bir `symbols_to_fetch` seti yerine, piyasaya göre ayrılmış bir sözlük kullanıyoruz.
+            # 3. ADIM: SEMBOLLERİ PİYASALARINA GÖRE GRUPLAMA
             symbols_by_market = {"BIST": set(), "NASDAQ": set(), "CRYPTO": set(), "METALS": set()}
             for user in users_to_check:
                 for alert in user.alerts:
@@ -364,10 +359,9 @@ async def run_price_checks():
                     if market in symbols_by_market:
                         symbols_by_market[market].add(alert.symbol)
             
-            # 4. ADIM: HER PİYASA İÇİN TOPLU VERİ ÇEKME (YENİ VE EN KRİTİK OPTİMİZASYON)
+            # 4. ADIM: HER PİYASA İÇİN TOPLU VERİ ÇEKME
             prices = {}
             
-            # Paralel olarak çalıştırılacak görevleri (task) hazırlıyoruz.
             batch_tasks = []
             if symbols_by_market["BIST"]:
                 batch_tasks.append(fetch_bist_batch(symbols_by_market["BIST"]))
@@ -378,14 +372,32 @@ async def run_price_checks():
             if symbols_by_market["METALS"]:
                 batch_tasks.append(fetch_metals_batch(symbols_by_market["METALS"]))
 
-            # Tüm piyasaların verilerini `asyncio.gather` ile AYNI ANDA çekiyoruz.
             if batch_tasks:
                 list_of_price_dicts = await asyncio.gather(*batch_tasks)
-                # Gelen fiyat sözlüklerini tek bir `prices` sözlüğünde birleştiriyoruz.
                 for price_dict in list_of_price_dicts:
                     prices.update(price_dict)
             
-            # 5. ADIM: ALARMLARI KONTROL ETME VE SİLME (Değişiklik Yok)
+            # =======================================================================
+            # === YENİ REDIS ENTEGRASYONU BURADA BAŞLIYOR ===
+            # =======================================================================
+            # Toplu halde çekilen tüm güncel fiyatları Redis'e yazıyoruz.
+            # Bu sayede /prices endpoint'i bu hazır veriyi anında ve masrafsızca okuyabilir.
+            if prices:
+                try:
+                    # Fiyatları JSON formatına çevirip Redis'e 90 saniye geçerli olacak şekilde kaydediyoruz.
+                    # 'ex=90' parametresi, anahtarın 90 saniye sonra otomatik silinmesini sağlar.
+                    await redis_conn.set("all_market_prices", json.dumps(prices), ex=90)
+                    print(f"{len(prices)} adet sembol fiyatı Redis cache'ine yazıldı.")
+                except Exception as redis_e:
+                    # Redis'e yazılamazsa bile programın çökmesini engelle, sadece hata bas.
+                    print(f"KRİTİK REDIS HATASI: Cache'e yazılamadı. Hata: {redis_e}")
+            # =======================================================================
+            # === REDIS ENTEGRASYONU BURADA BİTİYOR ===
+            # =======================================================================
+            
+            # 5. ADIM: ALARMLARI KONTROL ETME VE SİLME
+            # Bu adım, az önce API'lerden taze çektiğimiz 'prices' sözlüğünü kullanmaya devam eder.
+            # Redis'e yazma işlemi, sadece diğer endpoint'lerin veriye ulaşması içindir.
             total_deleted_alerts = []
             for user in users_to_check:
                 deleted_ids = await check_alerts_for_user(user, prices)
@@ -1040,79 +1052,61 @@ async def get_crypto_prices(n=50):
 
 @app.get("/prices")
 async def get_all_prices(user_uid: Optional[str] = Query(None)):
-    global _prices_cache
-    
+    """
+    Tüm piyasa fiyatlarını Redis cache'inden okur ve formatlayarak döndürür.
+    Bu endpoint, harici API'lere ASLA istek atmaz.
+    """
+    # 1. Adım: Temel kullanıcı doğrulamasını yap
     if user_uid is None:
         raise HTTPException(status_code=400, detail="Fiyatları çekmek için Kullanıcı ID'si gereklidir.")
 
     try:
-        with Session(engine) as session:
-            user = session.get(User, user_uid)
-            language_code = user.language_code if user and user.language_code else 'en'
-        target_currency = LANGUAGE_CURRENCY_MAP.get(language_code, 'USD')
+        # 2. Adım: Arka plan görevinin Redis'e yazdığı ana fiyat verisini çek
+        cached_prices_json = await redis_conn.get("all_market_prices")
+        
+        # 3. Adım: Cache'in boş olma durumunu kontrol et (Önemli!)
+        # Bu durum, sunucu yeni başladığında ve ilk cron job henüz çalışmadığında yaşanabilir.
+        if not cached_prices_json:
+            raise HTTPException(
+                status_code=503, # Service Unavailable
+                detail="Piyasa verileri anlık olarak güncelleniyor, lütfen birkaç saniye sonra tekrar deneyin."
+            )
+
+        # 4. Adım: Redis'ten gelen JSON string'ini Python sözlüğüne çevir
+        all_prices = json.loads(cached_prices_json)
+
+        # 5. Adım: Düz veriyi, ön yüzün (frontend) beklediği market formatına dönüştür
+        # Hızlı arama için sembol listelerinden set'ler oluşturuyoruz.
+        bist_symbols_plain = {s.split('.')[0] for s in BIST100_SYMBOLS}
+        metals_symbols = {"ALTIN", "GÜMÜŞ", "BAKIR"}
+        
+        # Her market için boş listeler hazırlıyoruz
+        bist_formatted = []
+        nasdaq_formatted = []
+        crypto_formatted = []
+        metals_formatted = []
+
+        # Redis'ten gelen her bir sembolü doğru market listesine ekliyoruz.
+        for symbol, price in all_prices.items():
+            item = {"symbol": symbol, "price": price}
+            if symbol in bist_symbols_plain:
+                bist_formatted.append({"market": "BIST", **item})
+            elif symbol in POPULAR_NASDAQ:
+                nasdaq_formatted.append({"market": "NASDAQ", **item})
+            elif symbol in metals_symbols:
+                metals_formatted.append({"market": "METALS", **item})
+            else: 
+                # Diğer marketlere uymayanları Kripto olarak varsayıyoruz.
+                crypto_formatted.append({"market": "CRYPTO", **item})
+        
+        # 6. Adım: Formatlanmış tüm listeleri birleştirip döndür
+        return bist_formatted + nasdaq_formatted + crypto_formatted + metals_formatted
+
     except Exception as e:
-        print(f"Kullanıcı ayarları alınırken hata: {e}")
-        target_currency = 'USD'
-
-    async with _prices_cache_lock:
-        base_data_to_fetch = False
-        metals_data_to_fetch = False
-        
-        # 1. Sabit veriler (BIST, NASDAQ, CRYPTO) için ana cache'i kontrol et
-        base_cache = _prices_cache["base_data"]
-        if not base_cache.get("timestamp") or (datetime.utcnow() - base_cache["timestamp"]) >= CACHE_DURATION:
-            print("Ana cache (BIST, NASDAQ, CRYPTO) süresi geçmiş. API'ler çağrılacak.")
-            base_data_to_fetch = True
-        else:
-            print("Ana cache (BIST, NASDAQ, CRYPTO) kullanılıyor.")
-            bist, nasdaq, crypto = base_cache["data"]
-
-        # 2. Metaller için para birimine özel cache'i kontrol et
-        metals_cache = _prices_cache["metals_data"].get(target_currency, {})
-        if not metals_cache.get("timestamp") or (datetime.utcnow() - metals_cache["timestamp"]) >= CACHE_DURATION:
-            print(f"Metaller için '{target_currency}' cache'i süresi geçmiş. Hesaplama yapılacak.")
-            metals_data_to_fetch = True
-        else:
-            print(f"Metaller için '{target_currency}' cache'i kullanılıyor.")
-            metals = metals_cache["data"]
-
-        # 3. Sadece cache'de olmayan verileri API'lerden çek
-        tasks_to_run = []
-        if base_data_to_fetch:
-            tasks_to_run.extend([get_bist_prices(), get_nasdaq_prices(), get_crypto_prices()])
-        if metals_data_to_fetch:
-            tasks_to_run.append(get_metals(user_uid=user_uid))
-
-        if tasks_to_run:
-            results = await asyncio.gather(*tasks_to_run)
-            
-            result_index = 0
-            if base_data_to_fetch:
-                bist, nasdaq, crypto = results[result_index:result_index+3]
-                result_index += 3
-                # Ana cache'i güncelle
-                _prices_cache["base_data"] = {
-                    "data": (bist, nasdaq, crypto),
-                    "timestamp": datetime.utcnow()
-                }
-
-            if metals_data_to_fetch:
-                metals_dict = results[result_index]
-                metals = [{"market": "METALS", "symbol": k, "price": v} for k, v in metals_dict.items()]
-                # Para birimine özel metal cache'ini güncelle
-                _prices_cache["metals_data"][target_currency] = {
-                    "data": metals,
-                    "timestamp": datetime.utcnow()
-                }
-        
-        # Sonuçları formatla ve birleştir
-        bist_formatted = [{"market": "BIST", **item} for item in bist]
-        nasdaq_formatted = [{"market": "NASDAQ", **item} for item in nasdaq]
-        crypto_formatted = [{"market": "CRYPTO", **item} for item in crypto]
-        
-        all_data = bist_formatted + nasdaq_formatted + crypto_formatted + metals
-        
-        return all_data
+        # Beklenmedik bir hata olursa logla ve 500 hatası döndür.
+        print(f"KRİTİK HATA (/prices): {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Fiyatlar alınırken bir sunucu hatası oluştu.")
     
 @app.get("/symbols_with_name")
 async def symbols_with_name(market: str, n: int = 50):
