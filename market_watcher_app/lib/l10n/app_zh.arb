@@ -43,5 +43,9 @@
   "gram": "克",
   "metalGold": "黄金",
   "metalSilver": "白银",
-  "metalCopper": "铜"
+  "metalCopper": "铜",
+  "subscriptionPlans": "订阅计划",
+  "alarms": "警报",
+  "markets": "市场",
+  "subscriptions": "订阅"
 }

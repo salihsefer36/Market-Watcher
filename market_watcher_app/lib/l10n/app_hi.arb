@@ -43,5 +43,9 @@
   "gram": "ग्राम",
   "metalGold": "सोना",
   "metalSilver": "चांदी",
-  "metalCopper": "ताँबा"
+  "metalCopper": "ताँबा",
+  "subscriptionPlans": "सदस्यता योजनाएं",
+  "alarms": "अलार्म",
+  "markets": "बाजार",
+  "subscriptions": "सदस्यताएँ"
 }

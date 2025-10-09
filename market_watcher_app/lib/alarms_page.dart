@@ -7,18 +7,16 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:provider/provider.dart';
 import 'l10n/app_localizations.dart';
-import 'settings_page.dart';
 import 'main.dart';
-import 'watch_market_page.dart';
 import 'locale_provider.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class AlarmsPage extends StatefulWidget {
+  const AlarmsPage({super.key});
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<AlarmsPage> createState() => AlarmsPageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class AlarmsPageState extends State<AlarmsPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   List<Map<String, dynamic>> _followedItems = [];
   bool _loading = true;
@@ -581,187 +579,96 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget buildSetAlarmButton(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+    return IconButton(
+      icon: Icon(Icons.add_circle_outline, color: Colors.amber.shade400, size: 30.sp),
+      onPressed: () => _openSetAlarmDialog(context, localizations),
+      tooltip: localizations.setAlarm,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    Provider.of<LocaleProvider>(context); 
-    final user = _auth.currentUser;
+    Provider.of<LocaleProvider>(context);
     final localizations = AppLocalizations.of(context)!;
-    return Container(
-      // Ana ekran arka planı gradyanı eklendi
-      decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent, // Gradyanın görünmesi için şeffaf yapıldı
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.transparent, // Şeffaf AppBar
-          title: Text(user?.displayName ?? localizations.marketWatcher, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22.sp)),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.settings_outlined, color: Colors.amber.shade400, size: 30.sp),
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage())),
-            ),
-          ],
-        ),
-        body: Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
-          child: Column(
-            children: [
-              // Ana Kart: Daha belirgin bir gölge ve border
-              Container(
-                height: MediaQuery.of(context).size.height * 0.55,
-                padding: EdgeInsets.all(16.w),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade900.withOpacity(0.6), // Hafif şeffaflık
-                  borderRadius: BorderRadius.circular(20.r),
-                  border: Border.all(color: Colors.amber.withOpacity(0.2), width: 1.0),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 15, offset: const Offset(0, 10)),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(localizations.followedAlarms, style: TextStyle(color: Colors.amber.shade400, fontSize: 20.sp, fontWeight: FontWeight.bold)),
-                    const Divider(color: Color(0xFF333333), height: 24),
-                    Expanded(
-                      child: _loading
-                          ? const Center(child: CircularProgressIndicator(color: Colors.amber))
-                          : _followedItems.isEmpty
-                              ? Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.notifications_off_outlined, color: Colors.grey.shade600, size: 48.sp),
-                                      SizedBox(height: 16.h),
-                                      Text(localizations.noAlarmsYet, style: TextStyle(color: Colors.grey.shade500, fontSize: 16.sp)),
-                                    ],
-                                  ),
-                                )
-                              : RefreshIndicator(
-                                  onRefresh: _fetchUserAlarms,
-                                  child: ListView.separated(
-                                    itemCount: _followedItems.length,
-                                    // HATA GİDERİLDİ: Artık ListView.separated'a uygun bir separator veriyor
-                                    separatorBuilder: (context, index) => const Divider(color: Colors.transparent, height: 1), 
-                                    itemBuilder: (context, index) {
-                                      final item = _followedItems[index];
-                                      String symbol = item['symbol'] ?? '';
-                                      final String displaySymbol = item['market'] == 'METALS'? _getLocalizedSymbolName(symbol, localizations): (item['market'] == 'CRYPTO' && symbol.endsWith('USDT')? symbol.substring(0, symbol.length - 4): symbol);
+    
+    // Bu sayfanın kendi Scaffold'u ve AppBar'ı artık yok.
+    // Sadece içeriği döndürüyoruz.
+    return RefreshIndicator(
+      onRefresh: _fetchUserAlarms,
+      color: Colors.amber.shade400,
+      backgroundColor: Colors.grey.shade900,
+      child: _loading
+          ? Center(child: CircularProgressIndicator(color: Colors.amber.shade400))
+          : _followedItems.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.notifications_off_outlined, color: Colors.grey.shade600, size: 48.sp),
+                      SizedBox(height: 16.h),
+                      Text(localizations.noAlarmsYet, style: TextStyle(color: Colors.grey.shade500, fontSize: 16.sp)),
+                      SizedBox(height: 80.h), // Alttaki menüden dolayı boşluk
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  padding: EdgeInsets.all(8.w),
+                  itemCount: _followedItems.length,
+                  separatorBuilder: (context, index) => SizedBox(height: 8.h),
+                  itemBuilder: (context, index) {
+                    final item = _followedItems[index];
+                    String symbol = item['symbol'] ?? '';
+                    final String displaySymbol = item['market'] == 'METALS'
+                        ? _getLocalizedSymbolName(symbol, localizations)
+                        : (item['market'] == 'CRYPTO' && symbol.endsWith('USDT')
+                            ? symbol.substring(0, symbol.length - 4)
+                            : symbol);
 
-                                      return Slidable(
-                                        key: ValueKey(item['id']),
-                                        endActionPane: ActionPane(
-                                          motion: const BehindMotion(), // Daha şık bir Slidable efekti
-                                          extentRatio: 0.25,
-                                          children: [
-                                            SlidableAction(
-                                              onPressed: (context) {
-                                                setState(() => _followedItems.removeAt(index));
-                                                _deleteAlarm(item['id']);
-                                              },
-                                              backgroundColor: Colors.red.shade700,
-                                              foregroundColor: Colors.white,
-                                              icon: Icons.delete_forever,
-                                              label: localizations.delete,
-                                              borderRadius: BorderRadius.circular(12.r),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: index.isEven ? Colors.black.withOpacity(0.05) : Colors.transparent, // Zebra şerit efekti
-                                            borderRadius: BorderRadius.circular(8.r)
-                                          ),
-                                          child: ListTile(
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                                            leading: CircleAvatar(
-                                              backgroundColor: Colors.amber.withOpacity(0.15),
-                                              child: Icon(Icons.notifications_active_outlined, color: Colors.amber.shade400, size: 24.sp),
-                                            ),
-                                            title: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.sp)),
-                                            subtitle: Text(_getLocalizedMarketName(item['market'] ?? '', localizations), style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp)),
-                                            trailing: Text(
-                                              '%${item['percentage']}', 
-                                              style: TextStyle(
-                                                color: Colors.amber.shade300, 
-                                                fontSize: 16.sp, 
-                                                fontWeight: FontWeight.w600
-                                              )
-                                            ),
-                                            onTap: () => _openEditAlarmDialog(context, item, localizations),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    // ListTiles arasında sadece Divider kullanılıyor
-                                    // separatorBuilder ile Transparent Divider verildi.
-                                  ),
-                                ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 24.h),
-              // Alarm Kur Butonu: Hata Giderildi. Custom butona çevrildi.
-              SizedBox(
-                width: double.infinity,
-                height: 55.h,
-                // ElevatedButton yerine Material/InkWell kombinasyonu kullanıldı
-                child: Material(
-                  color: Colors.transparent,
-                  // Butonun dış gölgesi ve köşeleri
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                  elevation: 10,
-                  shadowColor: Colors.amber.withOpacity(0.5),
-                  child: InkWell(
-                    onTap: () => _openSetAlarmDialog(context, localizations),
-                    borderRadius: BorderRadius.circular(16.r),
-                    child: Ink(
-                      // HATA GİDERİLDİ: Bu Ink widget'ı, ElevatedButton'ın child'ı olmaktan çıktı.
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Colors.amber, Colors.orangeAccent]),
-                        borderRadius: BorderRadius.circular(16.r),
+                    return Slidable(
+                      key: ValueKey(item['id']),
+                      endActionPane: ActionPane(
+                        motion: const BehindMotion(),
+                        extentRatio: 0.25,
+                        children: [
+                          SlidableAction(
+                            onPressed: (context) {
+                              setState(() => _followedItems.removeAt(index));
+                              _deleteAlarm(item['id']);
+                            },
+                            backgroundColor: Colors.red.shade700,
+                            foregroundColor: Colors.white,
+                            icon: Icons.delete_forever,
+                            label: localizations.delete,
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                        ],
                       ),
                       child: Container(
-                        alignment: Alignment.center,
-                        constraints: BoxConstraints.expand(height: 55.h),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add_alert_rounded, size: 28.sp, color: Colors.black),
-                            SizedBox(width: 12.w),
-                            Text(localizations.setAlarm, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.black)),
-                          ],
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade900.withOpacity(0.6),
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        ),
+                        child: ListTile(
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.amber.withOpacity(0.15),
+                            child: Icon(Icons.notifications_active_outlined, color: Colors.amber.shade400, size: 24.sp),
+                          ),
+                          title: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.sp)),
+                          subtitle: Text(_getLocalizedMarketName(item['market'] ?? '', localizations), style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp)),
+                          trailing: Text(
+                            '%${item['percentage']}',
+                            style: TextStyle(color: Colors.amber.shade300, fontSize: 16.sp, fontWeight: FontWeight.w600),
+                          ),
+                          onTap: () => _openEditAlarmDialog(context, item, localizations),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
-              ),
-              SizedBox(height: 12.h),
-              // Piyasaları İzle Butonu (Unchanged)
-              SizedBox(
-                width: double.infinity,
-                height: 55.h,
-                child: ElevatedButton.icon(
-                  icon: Icon(Icons.bar_chart_rounded, size: 28.sp),
-                  label: Text(localizations.watchMarkets, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey.shade800.withOpacity(0.7), 
-                    foregroundColor: Colors.amber.shade400, 
-                    elevation: 5,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                    side: BorderSide(color: Colors.amber.withOpacity(0.3)), // Hafif amber çerçeve
-                  ),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WatchMarketPage())),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -144,4 +144,16 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get metalCopper => 'ताँबा';
+
+  @override
+  String get subscriptionPlans => 'सदस्यता योजनाएं';
+
+  @override
+  String get alarms => 'अलार्म';
+
+  @override
+  String get markets => 'बाजार';
+
+  @override
+  String get subscriptions => 'सदस्यताएँ';
 }

@@ -143,4 +143,16 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get metalCopper => '銅';
+
+  @override
+  String get subscriptionPlans => '購読プラン';
+
+  @override
+  String get alarms => 'アラーム';
+
+  @override
+  String get markets => '市場';
+
+  @override
+  String get subscriptions => 'サブスクリプション';
 }

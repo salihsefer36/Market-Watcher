@@ -144,4 +144,16 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get metalCopper => 'نحاس';
+
+  @override
+  String get subscriptionPlans => 'خطط الاشتراك';
+
+  @override
+  String get alarms => 'التنبيهات';
+
+  @override
+  String get markets => 'الأسواق';
+
+  @override
+  String get subscriptions => 'الاشتراكات';
 }

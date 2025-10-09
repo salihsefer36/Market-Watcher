@@ -145,4 +145,16 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get metalCopper => 'Rame';
+
+  @override
+  String get subscriptionPlans => 'Piani di abbonamento';
+
+  @override
+  String get alarms => 'Allarmi';
+
+  @override
+  String get markets => 'Mercati';
+
+  @override
+  String get subscriptions => 'Abbonamenti';
 }

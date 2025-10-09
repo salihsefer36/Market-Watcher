@@ -43,5 +43,9 @@
   "gram": "Gramme",
   "metalGold": "Or",
   "metalSilver": "Argent",
-  "metalCopper": "Cuivre"
+  "metalCopper": "Cuivre",
+  "subscriptionPlans": "Plans d'abonnement",
+  "alarms": "Alarmes",
+  "markets": "Marchés",
+  "subscriptions": "Abonnements"
 }

@@ -143,4 +143,16 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get metalCopper => '铜';
+
+  @override
+  String get subscriptionPlans => '订阅计划';
+
+  @override
+  String get alarms => '警报';
+
+  @override
+  String get markets => '市场';
+
+  @override
+  String get subscriptions => '订阅';
 }

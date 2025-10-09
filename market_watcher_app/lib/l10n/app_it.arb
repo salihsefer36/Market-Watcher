@@ -43,5 +43,9 @@
   "gram": "Grammo",
   "metalGold": "Oro",
   "metalSilver": "Argento",
-  "metalCopper": "Rame"
+  "metalCopper": "Rame",
+  "subscriptionPlans": "Piani di abbonamento",
+  "alarms": "Allarmi",
+  "markets": "Mercati",
+  "subscriptions": "Abbonamenti"
 }

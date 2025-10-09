@@ -43,5 +43,9 @@
     "gram": "جرام",
     "metalGold": "ذهب",
     "metalSilver": "فضة",
-    "metalCopper": "نحاس"
+    "metalCopper": "نحاس",
+    "subscriptionPlans": "خطط الاشتراك",
+    "alarms": "التنبيهات",
+    "markets": "الأسواق",
+    "subscriptions": "الاشتراكات"
 }

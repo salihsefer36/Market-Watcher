@@ -56,7 +56,7 @@ class _SettingsPageState extends State<SettingsPage> {
           _notificationsEnabled = settings['notifications_enabled'];
           _currentLanguageCode = settings['language_code'] ?? 'en';
         });
-        // Uygulamanın genel dilini başlangıçta ayarla
+
         Provider.of<LocaleProvider>(context, listen: false).setLocale(_currentLanguageCode);
       }
     } catch (e) {
@@ -104,57 +104,38 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
 
-    return Container(
-      // Ana ekran arka planı gradyanı eklendi
-      decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          title: Text(localizations.settings, style: TextStyle(color: Colors.white, fontSize: 22.sp, fontWeight: FontWeight.bold)),
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: Colors.amber.shade400),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-        body: _isLoading
-            ? Center(child: CircularProgressIndicator(color: Colors.amber.shade400))
-            : ListView(
-                padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
+    return _isLoading
+        ? Center(child: CircularProgressIndicator(color: Colors.amber.shade400))
+        : ListView(
+            padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
+            children: [
+              _buildSectionHeader(localizations.general),
+              _buildSettingsCard(
                 children: [
-                  _buildSectionHeader(localizations.general),
-                  _buildSettingsCard(
-                    children: [
-                      _buildLanguageTile(localizations),
-                      const Divider(color: Color(0xFF333333), height: 1, indent: 16, endIndent: 16),
-                      _buildNotificationsTile(localizations),
-                    ],
-                  ),
-                  SizedBox(height: 30.h),
-                  _buildSectionHeader(localizations.account),
-                  _buildSettingsCard(
-                    children: [
-                      _buildSignOutTile(localizations),
-                    ],
-                  ),
-                  SizedBox(height: 30.h),
-                  Center(
-                    child: Text(
-                      'Market Watcher v1.0.0',
-                      style: TextStyle(color: Colors.grey.shade700, fontSize: 12.sp),
-                    ),
-                  )
+                  _buildLanguageTile(localizations),
+                  const Divider(color: Color(0xFF333333), height: 1, indent: 16, endIndent: 16),
+                  _buildNotificationsTile(localizations),
                 ],
               ),
-      ),
-    );
+              SizedBox(height: 30.h),
+              _buildSectionHeader(localizations.account),
+              _buildSettingsCard(
+                children: [
+                  _buildSignOutTile(localizations),
+                ],
+              ),
+              SizedBox(height: 30.h),
+              Center(
+                child: Text(
+                  'Market Watcher v1.0.1',
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 12.sp),
+                ),
+              )
+            ],
+          );
   }
 
   Widget _buildSettingsCard({required List<Widget> children}) {
-    // Ayarlar kartına belirgin bir gölge ve border eklendi
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade900.withOpacity(0.7),
@@ -172,7 +153,7 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-          color: Colors.amber.shade400, // Başlık rengi amber yapıldı
+          color: Colors.amber.shade400, 
           fontSize: 14.sp,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.5,
@@ -184,7 +165,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _buildLanguageTile(AppLocalizations localizations) {
     return ListTile(
       leading: Icon(Icons.language_outlined, color: Colors.amber.shade400),
-      title: const Text('Uygulama Dili', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+      title: Text(localizations.applicationLanguage, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
       subtitle: Text(
         _supportedLanguages[_currentLanguageCode] ?? 'English',
         style: TextStyle(color: Colors.grey.shade400),

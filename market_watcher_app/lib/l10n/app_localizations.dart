@@ -379,6 +379,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copper'**
   String get metalCopper;
+
+  /// No description provided for @subscriptionPlans.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription Plans'**
+  String get subscriptionPlans;
+
+  /// No description provided for @alarms.
+  ///
+  /// In en, this message translates to:
+  /// **'Alarms'**
+  String get alarms;
+
+  /// No description provided for @markets.
+  ///
+  /// In en, this message translates to:
+  /// **'Markets'**
+  String get markets;
+
+  /// No description provided for @subscriptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions'**
+  String get subscriptions;
 }
 
 class _AppLocalizationsDelegate

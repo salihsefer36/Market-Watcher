@@ -43,5 +43,9 @@
   "gram": "グラム",
   "metalGold": "ゴールド",
   "metalSilver": "銀",
-  "metalCopper": "銅"
+  "metalCopper": "銅",
+  "subscriptionPlans": "購読プラン",
+  "alarms": "アラーム",
+  "markets": "市場",
+  "subscriptions": "サブスクリプション"
 }

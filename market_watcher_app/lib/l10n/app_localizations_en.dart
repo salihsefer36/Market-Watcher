@@ -144,4 +144,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get metalCopper => 'Copper';
+
+  @override
+  String get subscriptionPlans => 'Subscription Plans';
+
+  @override
+  String get alarms => 'Alarms';
+
+  @override
+  String get markets => 'Markets';
+
+  @override
+  String get subscriptions => 'Subscriptions';
 }

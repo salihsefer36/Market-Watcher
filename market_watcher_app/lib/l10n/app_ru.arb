@@ -43,5 +43,9 @@
   "gram": "Грамм",
   "metalGold": "Золото",
   "metalSilver": "Серебро",
-  "metalCopper": "Медь"
+  "metalCopper": "Медь",
+  "subscriptionPlans": "Планы подписки",
+  "alarms": "Оповещения",
+  "markets": "Рынки",
+  "subscriptions": "Подписки"
 }

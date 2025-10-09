@@ -144,4 +144,16 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get metalCopper => 'Bakır';
+
+  @override
+  String get subscriptionPlans => 'Abonelik Planları';
+
+  @override
+  String get alarms => 'Alarmlar';
+
+  @override
+  String get markets => 'Piyasalar';
+
+  @override
+  String get subscriptions => 'Abonelikler';
 }

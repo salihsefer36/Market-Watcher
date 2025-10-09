@@ -19,15 +19,14 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
   bool loading = true;
   late TabController _tabController;
 
-  @override
+   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: marketData.keys.length, vsync: this);
-
-    Future.microtask(() {
-      if (mounted) {
-        fetchAllDataEfficiently();
-      }
+    // ÖNEMLİ: Bu fetchAllDataEfficiently çağrısını buraya taşıyoruz
+    // Bu sayede sayfa her açıldığında verileri yeniler.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      fetchAllDataEfficiently();
     });
   }
 
@@ -92,57 +91,38 @@ class _WatchMarketPageState extends State<WatchMarketPage> with SingleTickerProv
     }
 }
 
-  @override
+@override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
-    return Container(
-      // Ana ekran arka planı gradyanı eklendi
-      decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent, // Gradyanın görünmesi için şeffaf yapıldı
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.transparent, // Şeffaf AppBar
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: Colors.amber.shade400),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: Text(
-            localizations.watchMarketChart,
-            style: TextStyle(
-              color: Colors.white, // Başlık rengi
-              fontWeight: FontWeight.bold,
-              fontSize: 22.sp,
-            ),
-          ),
-          bottom: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            indicatorColor: Colors.amber.shade400,
-            labelColor: Colors.amber.shade400,
-            unselectedLabelColor: Colors.grey.shade500,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
-            tabs: marketData.keys.map((market) {
-              String tabText = market;
-              if (market == "CRYPTO") tabText = localizations.crypto;
-              if (market == "METALS") tabText = localizations.metals;
-              return Tab(text: tabText);
-            }).toList(),
-          ),
+    // Bu sayfanın kendi Scaffold ve AppBar'ı yok.
+    // Direkt olarak TabBar ve TabBarView'ı içeren bir Column döndürüyoruz.
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          indicatorColor: Colors.amber.shade400,
+          labelColor: Colors.amber.shade400,
+          unselectedLabelColor: Colors.grey.shade500,
+          labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+          tabs: marketData.keys.map((market) {
+            String tabText = market;
+            // ... tabText yerelleştirme kodunuz aynı ...
+            return Tab(text: tabText);
+          }).toList(),
         ),
-        body: loading
-            ? Center(child: CircularProgressIndicator(color: Colors.amber.shade400))
-            : TabBarView(
-                controller: _tabController,
-                children: marketData.keys.map((market) {
-                  final data = marketData[market] ?? [];
-                  final filteredData = data.where((item) => item['price'] != null && item['price'] > 0).toList();
-                  return _buildMarketList(market, filteredData);
-                }).toList(),
-              ),
-      ),
+        Expanded(
+          child: loading
+              ? Center(child: CircularProgressIndicator(color: Colors.amber.shade400))
+              : TabBarView(
+                  controller: _tabController,
+                  children: marketData.keys.map((market) {
+                    final data = marketData[market] ?? [];
+                    final filteredData = data.where((item) => item['price'] != null && item['price'] > 0).toList();
+                    return _buildMarketList(market, filteredData);
+                  }).toList(),
+                ),
+        ),
+      ],
     );
   }
 

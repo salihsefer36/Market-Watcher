@@ -144,4 +144,16 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get metalCopper => 'Медь';
+
+  @override
+  String get subscriptionPlans => 'Планы подписки';
+
+  @override
+  String get alarms => 'Оповещения';
+
+  @override
+  String get markets => 'Рынки';
+
+  @override
+  String get subscriptions => 'Подписки';
 }
