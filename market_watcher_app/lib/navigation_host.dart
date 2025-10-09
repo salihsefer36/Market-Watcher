@@ -1,8 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'alarms_page.dart'; 
+import 'alarms_page.dart';
 import 'watch_market_page.dart';
-import 'subscriptions_page.dart'; 
+import 'subscriptions_page.dart';
 import 'settings_page.dart';
 import 'l10n/app_localizations.dart';
 
@@ -16,11 +17,10 @@ class NavigationHostPage extends StatefulWidget {
 class _NavigationHostPageState extends State<NavigationHostPage> {
   int _selectedIndex = 0;
 
-  // Sayfaların listesi
   static const List<Widget> _widgetOptions = <Widget>[
-    AlarmsPage(), // Eski HomePage
+    AlarmsPage(),
     WatchMarketPage(),
-    SubscriptionsPage(), // Yeni Sayfa
+    SubscriptionsPage(),
     SettingsPage(),
   ];
 
@@ -33,10 +33,13 @@ class _NavigationHostPageState extends State<NavigationHostPage> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
+    final user = FirebaseAuth.instance.currentUser;
+
+    // DEĞİŞTİ: Başlıklar dinamik hale getirildi.
     final pageTitles = [
-      localizations.followedAlarms,
+      user?.displayName ?? localizations.marketWatcher, // Alarmlar sayfasında kullanıcı adı gösterilecek
       localizations.watchMarkets,
-      localizations.subscriptions, // Yerelleştirme dosyanıza eklemeniz gerekebilir
+      localizations.subscriptions,
       localizations.settings,
     ];
 
@@ -53,6 +56,7 @@ class _NavigationHostPageState extends State<NavigationHostPage> {
         appBar: AppBar(
           elevation: 0,
           backgroundColor: Colors.transparent,
+          // DEĞİŞTİ: Artık başlık seçili sekmeye göre değişiyor
           title: Text(
             pageTitles[_selectedIndex],
             style: TextStyle(
@@ -61,15 +65,8 @@ class _NavigationHostPageState extends State<NavigationHostPage> {
               fontSize: 22.sp,
             ),
           ),
-          // Sadece Alarmlar sayfasındayken "+" butonunu göster
-          actions: _selectedIndex == 0
-              ? [
-                  // AlarmsPage'in içindeki butonu buraya taşıdık
-                  (context.findAncestorWidgetOfExactType<AlarmsPage>()?.createState() as AlarmsPageState?)
-                          ?.buildSetAlarmButton(context) ??
-                      const SizedBox.shrink(),
-                ]
-              : null,
+          // DEĞİŞTİ: Sağ üstteki "+" butonu buradan kaldırıldı.
+          actions: null, 
         ),
         body: Center(
           child: _widgetOptions.elementAt(_selectedIndex),
@@ -78,11 +75,11 @@ class _NavigationHostPageState extends State<NavigationHostPage> {
           items: <BottomNavigationBarItem>[
             BottomNavigationBarItem(
               icon: const Icon(Icons.notifications_active_outlined),
-              label: localizations.alarms, // Yerelleştirme dosyanıza ekleyin
+              label: localizations.alarms,
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.bar_chart_rounded),
-              label: localizations.markets, // Yerelleştirme dosyanıza ekleyin
+              label: localizations.markets,
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.workspace_premium_outlined),

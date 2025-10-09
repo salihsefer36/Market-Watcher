@@ -1,3 +1,5 @@
+// alarms_page.dart
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,17 +27,17 @@ class AlarmsPageState extends State<AlarmsPage> {
   void initState() {
     super.initState();
     _fetchUserAlarms();
-    _loadUserSettings(); 
+    _loadUserSettings();
     _registerDeviceToken();
   }
 
   String _getLocalizedSymbolName(String symbol, AppLocalizations localizations) {
-    switch (symbol.toLowerCase()) {
-      case 'altın' || 'altin':
+    switch (symbol.toUpperCase()) {
+      case 'ALTIN':
         return localizations.metalGold;
-      case 'gümüş' || 'gumus':
+      case 'GÜMÜŞ':
         return localizations.metalSilver;
-      case 'bakır' || 'bakir':
+      case 'BAKIR':
         return localizations.metalCopper;
       default:
         return symbol;
@@ -45,10 +47,10 @@ class AlarmsPageState extends State<AlarmsPage> {
   String _getLocalizedMarketName(String market, AppLocalizations localizations) {
     switch (market) {
       case 'CRYPTO':
-        return localizations.crypto; 
+        return localizations.crypto;
       case 'METALS':
-        return localizations.metals; 
-      default: 
+        return localizations.metals;
+      default:
         return market;
     }
   }
@@ -82,12 +84,11 @@ class AlarmsPageState extends State<AlarmsPage> {
       if (uid == null) return;
 
       final uri = Uri.parse("$backendBaseUrl/user/settings/$uid");
-      final response = await http.get(uri).timeout(const Duration(seconds: 10)); 
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200 && mounted) {
         final settings = jsonDecode(response.body);
         final languageCode = settings['language_code'] ?? 'en';
-
         Provider.of<LocaleProvider>(context, listen: false).setLocale(languageCode);
       }
     } catch (e) {
@@ -145,7 +146,7 @@ class AlarmsPageState extends State<AlarmsPage> {
       if (exists) {
         String displaySymbol = symbol;
         if (market == 'CRYPTO' && displaySymbol.endsWith('USDT')) {
-          displaySymbol = displaySymbol.substring(0, displaySymbol.length - 1);
+          displaySymbol = displaySymbol.substring(0, displaySymbol.length - 4);
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -197,7 +198,7 @@ class AlarmsPageState extends State<AlarmsPage> {
       final uri = Uri.parse("$backendBaseUrl/alerts/$id?user_uid=$userUid");
       final response = await http.delete(uri);
       if (response.statusCode != 200) {
-        _fetchUserAlarms(); // If deletion fails on backend, refresh UI to show it again
+        _fetchUserAlarms();
       }
     } catch (e) {
       print("Delete alarm error: $e");
@@ -210,9 +211,9 @@ class AlarmsPageState extends State<AlarmsPage> {
     String? selectedSymbol;
     double? selectedPercentage;
     final markets = ['BIST', 'NASDAQ', 'CRYPTO', 'METALS'];
-    final percentages = [1, 2, 5, 10];
+    final percentages = [1.0, 2.0, 5.0, 10.0];
     List<String> symbolsForMarket = [];
-    bool _isLoadingSymbols = false;
+    bool isLoadingSymbols = false;
 
     Future<List<String>> fetchSymbolsForMarket(String market) async {
       try {
@@ -243,7 +244,6 @@ class AlarmsPageState extends State<AlarmsPage> {
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    // Diyalog arka planı gradyanı ve amber çerçeve
                     gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black87], begin: Alignment.topLeft, end: Alignment.bottomRight),
                     borderRadius: BorderRadius.circular(20.r),
                     border: Border.all(color: Colors.amber.withOpacity(0.7), width: 1.5),
@@ -263,17 +263,14 @@ class AlarmsPageState extends State<AlarmsPage> {
                           hint: Text(localizations.selectMarket, style: const TextStyle(color: Colors.grey)),
                           items: markets.map((m) {
                             return DropdownMenuItem(
-                              value: m, 
-                              child: Text(
-                                _getLocalizedMarketName(m, localizations),
-                                style: const TextStyle(color: Colors.white)
-                              ),
+                              value: m,
+                              child: Text(_getLocalizedMarketName(m, localizations), style: const TextStyle(color: Colors.white)),
                             );
                           }).toList(),
                           onChanged: (value) async {
                             if (value == null) return;
                             setState(() {
-                              _isLoadingSymbols = true;
+                              isLoadingSymbols = true;
                               selectedMarket = value;
                               selectedSymbol = null;
                               symbolsForMarket = [];
@@ -281,7 +278,7 @@ class AlarmsPageState extends State<AlarmsPage> {
                             final symbols = await fetchSymbolsForMarket(value);
                             setState(() {
                               symbolsForMarket = symbols;
-                              _isLoadingSymbols = false;
+                              isLoadingSymbols = false;
                             });
                           },
                         ),
@@ -290,7 +287,7 @@ class AlarmsPageState extends State<AlarmsPage> {
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         height: 50.h,
-                        child: _isLoadingSymbols
+                        child: isLoadingSymbols
                             ? Center(child: CircularProgressIndicator(color: Colors.amber.shade600, strokeWidth: 2.5))
                             : (selectedMarket != null
                                 ? _buildDropdownContainer(
@@ -302,7 +299,7 @@ class AlarmsPageState extends State<AlarmsPage> {
                                       hint: Text(localizations.selectSymbol, style: const TextStyle(color: Colors.grey)),
                                       value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
                                       items: symbolsForMarket.map((s) {
-                                        final displayName = selectedMarket == 'METALS'? _getLocalizedSymbolName(s, localizations): s;
+                                        final displayName = selectedMarket == 'METALS' ? _getLocalizedSymbolName(s, localizations) : s;
                                         return DropdownMenuItem(
                                           value: s,
                                           child: Text(displayName, style: const TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis),
@@ -322,7 +319,7 @@ class AlarmsPageState extends State<AlarmsPage> {
                           underline: const SizedBox(),
                           hint: Text(localizations.selectChangePercent, style: const TextStyle(color: Colors.grey)),
                           value: selectedPercentage,
-                          items: percentages.map((p) => DropdownMenuItem(value: p.toDouble(), child: Text('$p%', style: const TextStyle(color: Colors.white)))).toList(),
+                          items: percentages.map((p) => DropdownMenuItem(value: p, child: Text('$p%', style: const TextStyle(color: Colors.white)))).toList(),
                           onChanged: (value) => setState(() => selectedPercentage = value),
                         ),
                       ),
@@ -340,11 +337,11 @@ class AlarmsPageState extends State<AlarmsPage> {
                                 ? () async {
                                     String formattedSymbol = selectedSymbol!;
                                     if (selectedMarket == 'CRYPTO') {
-                                      formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
-                                    }else if (selectedMarket == 'METALS') {
+                                      formattedSymbol = "${selectedSymbol!.toUpperCase()}USDT";
+                                    } else if (selectedMarket == 'METALS') {
                                       formattedSymbol = selectedSymbol!.toUpperCase();
                                     }
-                                    Navigator.pop(dialogContext); // Close dialog before async operation
+                                    Navigator.pop(dialogContext);
                                     await _createOrEditAlarm(selectedMarket!, formattedSymbol, selectedPercentage!);
                                   }
                                 : null,
@@ -372,17 +369,17 @@ class AlarmsPageState extends State<AlarmsPage> {
     String? selectedMarket = alert['market'];
     String? selectedSymbol = alert['symbol'];
     if (selectedMarket == 'CRYPTO' && selectedSymbol != null && selectedSymbol.endsWith('USDT')) {
-      selectedSymbol = selectedSymbol.substring(0, selectedSymbol.length - 1);
+      selectedSymbol = selectedSymbol.substring(0, selectedSymbol.length - 4);
     }
     
     double? selectedPercentage = alert['percentage']?.toDouble();
 
     final markets = ['BIST', 'NASDAQ', 'CRYPTO', 'METALS'];
-    final percentages = [1, 2, 5, 10];
+    final percentages = [1.0, 2.0, 5.0, 10.0];
     List<String> symbolsForMarket = [];
-    bool _isLoadingSymbols = false;
+    bool isLoadingSymbols = false;
 
-    Future<List<String>> _fetchSymbolsForMarket(String market) async {
+    Future<List<String>> fetchSymbolsForMarket(String market) async {
       try {
         final uri = Uri.parse("$backendBaseUrl/symbols_with_name?market=$market");
         final res = await http.get(uri);
@@ -398,19 +395,19 @@ class AlarmsPageState extends State<AlarmsPage> {
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: EdgeInsets.all(24.w),
           child: StatefulBuilder(
             builder: (context, setState) {
 
-              if (selectedMarket != null && symbolsForMarket.isEmpty && !_isLoadingSymbols) {
-                setState(() => _isLoadingSymbols = true);
-                _fetchSymbolsForMarket(selectedMarket!).then((symbols) {
+              if (selectedMarket != null && symbolsForMarket.isEmpty && !isLoadingSymbols) {
+                setState(() => isLoadingSymbols = true);
+                fetchSymbolsForMarket(selectedMarket!).then((symbols) {
                   setState(() {
                     symbolsForMarket = symbols;
-                    _isLoadingSymbols = false;
+                    isLoadingSymbols = false;
                   });
                 });
               }
@@ -439,7 +436,6 @@ class AlarmsPageState extends State<AlarmsPage> {
                         ),
                       ),
                       SizedBox(height: 24.h),
-                      
                       _buildDropdownContainer(
                         icon: Icons.store_mall_directory_outlined,
                         child: DropdownButton<String>(
@@ -449,35 +445,31 @@ class AlarmsPageState extends State<AlarmsPage> {
                           value: selectedMarket,
                           items: markets.map((m) {
                             return DropdownMenuItem(
-                              value: m, 
-                              child: Text(
-                                _getLocalizedMarketName(m, localizations), 
-                                style: const TextStyle(color: Colors.white)
-                              ),
+                              value: m,
+                              child: Text(_getLocalizedMarketName(m, localizations), style: const TextStyle(color: Colors.white)),
                             );
                           }).toList(),
                           onChanged: (value) async {
                             if (value == null) return;
                             setState(() {
-                              _isLoadingSymbols = true;
+                              isLoadingSymbols = true;
                               selectedMarket = value;
                               selectedSymbol = null;
                               symbolsForMarket = [];
                             });
-                            final symbols = await _fetchSymbolsForMarket(value);
+                            final symbols = await fetchSymbolsForMarket(value);
                             setState(() {
                               symbolsForMarket = symbols;
-                              _isLoadingSymbols = false;
+                              isLoadingSymbols = false;
                             });
                           },
                         ),
                       ),
                       SizedBox(height: 16.h),
-                      
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         height: 50.h,
-                        child: _isLoadingSymbols
+                        child: isLoadingSymbols
                             ? Center(child: CircularProgressIndicator(color: Colors.amber.shade600, strokeWidth: 2.5))
                             : _buildDropdownContainer(
                                 icon: Icons.analytics_outlined,
@@ -486,11 +478,11 @@ class AlarmsPageState extends State<AlarmsPage> {
                                   isExpanded: true,
                                   underline: const SizedBox(),
                                   value: symbolsForMarket.contains(selectedSymbol) ? selectedSymbol : null,
-                                  hint: Text(localizations.selectSymbol, style: TextStyle(color: Colors.grey)),
+                                  hint: Text(localizations.selectSymbol, style: const TextStyle(color: Colors.grey)),
                                   items: symbolsForMarket.map((s) {
-                                    final displayName = selectedMarket == 'METALS' ? _getLocalizedSymbolName(s, localizations): s;
+                                    final displayName = selectedMarket == 'METALS' ? _getLocalizedSymbolName(s, localizations) : s;
                                     return DropdownMenuItem(
-                                      value: s, 
+                                      value: s,
                                       child: Text(displayName, style: const TextStyle(color: Colors.white), overflow: TextOverflow.ellipsis),
                                     );
                                   }).toList(),
@@ -499,7 +491,6 @@ class AlarmsPageState extends State<AlarmsPage> {
                               ),
                       ),
                       SizedBox(height: 16.h),
-                      
                       _buildDropdownContainer(
                         icon: Icons.percent_rounded,
                         child: DropdownButton<double>(
@@ -507,19 +498,18 @@ class AlarmsPageState extends State<AlarmsPage> {
                           isExpanded: true,
                           underline: const SizedBox(),
                           value: selectedPercentage,
-                          hint: Text(localizations.selectChangePercent, style: TextStyle(color: Colors.grey)),
-                          items: percentages.map((p) => DropdownMenuItem(value: p.toDouble(), child: Text('$p%', style: const TextStyle(color: Colors.white)))).toList(),
+                          hint: Text(localizations.selectChangePercent, style: const TextStyle(color: Colors.grey)),
+                          items: percentages.map((p) => DropdownMenuItem(value: p, child: Text('$p%', style: const TextStyle(color: Colors.white)))).toList(),
                           onChanged: (value) => setState(() => selectedPercentage = value),
                         ),
                       ),
                       SizedBox(height: 24.h),
-                      
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text(localizations.cancel, style: TextStyle(color: Colors.grey)),
+                            onPressed: () => Navigator.pop(dialogContext),
+                            child: Text(localizations.cancel, style: const TextStyle(color: Colors.grey)),
                           ),
                           SizedBox(width: 12.w),
                           ElevatedButton(
@@ -527,17 +517,17 @@ class AlarmsPageState extends State<AlarmsPage> {
                               if (selectedMarket != null && selectedSymbol != null && selectedPercentage != null) {
                                 String formattedSymbol = selectedSymbol!;
                                 if (selectedMarket == 'CRYPTO') {
-                                  formattedSymbol = "${selectedSymbol!.toUpperCase()}T";
-                                }else if (selectedMarket == 'METALS') {
+                                  formattedSymbol = "${selectedSymbol!.toUpperCase()}USDT";
+                                } else if (selectedMarket == 'METALS') {
                                   formattedSymbol = selectedSymbol!.toUpperCase();
                                 }
+                                Navigator.pop(dialogContext);
                                 await _createOrEditAlarm(
                                   selectedMarket!,
                                   formattedSymbol,
                                   selectedPercentage!,
                                   editId: alert['id'],
                                 );
-                                Navigator.pop(context);
                               }
                             },
                             style: ElevatedButton.styleFrom(
@@ -566,7 +556,6 @@ class AlarmsPageState extends State<AlarmsPage> {
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12.r),
-        // Daha belirgin ve şık border
         border: Border.all(color: Colors.amber.shade600.withOpacity(0.3), width: 1),
       ),
       child: Row(
@@ -579,96 +568,136 @@ class AlarmsPageState extends State<AlarmsPage> {
     );
   }
 
-  Widget buildSetAlarmButton(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
-    return IconButton(
-      icon: Icon(Icons.add_circle_outline, color: Colors.amber.shade400, size: 30.sp),
-      onPressed: () => _openSetAlarmDialog(context, localizations),
-      tooltip: localizations.setAlarm,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     Provider.of<LocaleProvider>(context);
     final localizations = AppLocalizations.of(context)!;
-    
-    // Bu sayfanın kendi Scaffold'u ve AppBar'ı artık yok.
-    // Sadece içeriği döndürüyoruz.
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _openSetAlarmDialog(context, localizations),
+        backgroundColor: Colors.amber.shade600,
+        foregroundColor: Colors.black,
+        tooltip: localizations.setAlarm,
+        elevation: 8,
+        child: const Icon(Icons.add_alert_rounded, size: 28),
+      ),
+      body: Padding(
+        // DEĞİŞTİ: Kartı yukarıdan biraz aşağı almak için üst padding'i artırdık.
+        padding: EdgeInsets.fromLTRB(16.w, 24.h, 16.w, 16.h),
+        child: Column(
+          children: [
+            // DEĞİŞTİ: Kartın etrafına Expanded yerine bir Container sarıp
+            // belirli bir yükseklik yüzdesi veriyoruz.
+            Container(
+              height: MediaQuery.of(context).size.height * 0.7, // Ekran yüksekliğinin %70'i
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade900.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(color: Colors.amber.withOpacity(0.2), width: 1.0),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 15, offset: const Offset(0, 10)),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.all(16.w),
+                    child: Text(
+                      localizations.followedAlarms,
+                      style: TextStyle(color: Colors.amber.shade400, fontSize: 20.sp, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const Divider(color: Color(0xFF333333), height: 1, thickness: 1),
+                  Expanded(
+                    child: _loading
+                        ? Center(child: CircularProgressIndicator(color: Colors.amber.shade400))
+                        : _followedItems.isEmpty
+                            ? _buildEmptyState(localizations)
+                            : _buildAlarmsList(localizations),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(AppLocalizations localizations) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.notifications_off_outlined, color: Colors.grey.shade600, size: 48.sp),
+        SizedBox(height: 16.h),
+        Text(localizations.noAlarmsYet, style: TextStyle(color: Colors.grey.shade500, fontSize: 16.sp)),
+      ],
+    );
+  }
+
+  Widget _buildAlarmsList(AppLocalizations localizations) {
     return RefreshIndicator(
       onRefresh: _fetchUserAlarms,
       color: Colors.amber.shade400,
       backgroundColor: Colors.grey.shade900,
-      child: _loading
-          ? Center(child: CircularProgressIndicator(color: Colors.amber.shade400))
-          : _followedItems.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.notifications_off_outlined, color: Colors.grey.shade600, size: 48.sp),
-                      SizedBox(height: 16.h),
-                      Text(localizations.noAlarmsYet, style: TextStyle(color: Colors.grey.shade500, fontSize: 16.sp)),
-                      SizedBox(height: 80.h), // Alttaki menüden dolayı boşluk
-                    ],
-                  ),
-                )
-              : ListView.separated(
-                  padding: EdgeInsets.all(8.w),
-                  itemCount: _followedItems.length,
-                  separatorBuilder: (context, index) => SizedBox(height: 8.h),
-                  itemBuilder: (context, index) {
-                    final item = _followedItems[index];
-                    String symbol = item['symbol'] ?? '';
-                    final String displaySymbol = item['market'] == 'METALS'
-                        ? _getLocalizedSymbolName(symbol, localizations)
-                        : (item['market'] == 'CRYPTO' && symbol.endsWith('USDT')
-                            ? symbol.substring(0, symbol.length - 4)
-                            : symbol);
+      child: ListView.separated(
+        padding: EdgeInsets.all(8.w),
+        itemCount: _followedItems.length,
+        separatorBuilder: (context, index) => SizedBox(height: 8.h),
+        itemBuilder: (context, index) {
+          final item = _followedItems[index];
+          String symbol = item['symbol'] ?? '';
+          final String displaySymbol = item['market'] == 'METALS'
+              ? _getLocalizedSymbolName(symbol, localizations)
+              : (item['market'] == 'CRYPTO' && symbol.endsWith('USDT')
+                  ? symbol.substring(0, symbol.length - 4)
+                  : symbol);
 
-                    return Slidable(
-                      key: ValueKey(item['id']),
-                      endActionPane: ActionPane(
-                        motion: const BehindMotion(),
-                        extentRatio: 0.25,
-                        children: [
-                          SlidableAction(
-                            onPressed: (context) {
-                              setState(() => _followedItems.removeAt(index));
-                              _deleteAlarm(item['id']);
-                            },
-                            backgroundColor: Colors.red.shade700,
-                            foregroundColor: Colors.white,
-                            icon: Icons.delete_forever,
-                            label: localizations.delete,
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
-                        ],
-                      ),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade900.withOpacity(0.6),
-                          borderRadius: BorderRadius.circular(12.r),
-                          border: Border.all(color: Colors.white.withOpacity(0.1)),
-                        ),
-                        child: ListTile(
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.amber.withOpacity(0.15),
-                            child: Icon(Icons.notifications_active_outlined, color: Colors.amber.shade400, size: 24.sp),
-                          ),
-                          title: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.sp)),
-                          subtitle: Text(_getLocalizedMarketName(item['market'] ?? '', localizations), style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp)),
-                          trailing: Text(
-                            '%${item['percentage']}',
-                            style: TextStyle(color: Colors.amber.shade300, fontSize: 16.sp, fontWeight: FontWeight.w600),
-                          ),
-                          onTap: () => _openEditAlarmDialog(context, item, localizations),
-                        ),
-                      ),
-                    );
+          return Slidable(
+            key: ValueKey(item['id']),
+            endActionPane: ActionPane(
+              motion: const BehindMotion(),
+              extentRatio: 0.25,
+              children: [
+                SlidableAction(
+                  onPressed: (context) {
+                    setState(() => _followedItems.removeAt(index));
+                    _deleteAlarm(item['id']);
                   },
+                  backgroundColor: Colors.red.shade700,
+                  foregroundColor: Colors.white,
+                  icon: Icons.delete_forever,
+                  label: localizations.delete,
+                  borderRadius: BorderRadius.circular(12.r),
                 ),
+              ],
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: ListTile(
+                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                leading: CircleAvatar(
+                  backgroundColor: Colors.amber.withOpacity(0.15),
+                  child: Icon(Icons.notifications_active_outlined, color: Colors.amber.shade400, size: 24.sp),
+                ),
+                title: Text(displaySymbol, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.sp)),
+                subtitle: Text(_getLocalizedMarketName(item['market'] ?? '', localizations), style: TextStyle(color: Colors.grey.shade400, fontSize: 12.sp)),
+                trailing: Text(
+                  '%${item['percentage']}',
+                  style: TextStyle(color: Colors.amber.shade300, fontSize: 16.sp, fontWeight: FontWeight.w600),
+                ),
+                onTap: () => _openEditAlarmDialog(context, item, localizations),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
