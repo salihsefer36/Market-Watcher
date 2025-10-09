@@ -18,12 +18,7 @@ class NavigationHostPage extends StatefulWidget {
 class _NavigationHostPageState extends State<NavigationHostPage> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    AlarmsPage(),
-    WatchMarketPage(),
-    SubscriptionsPage(),
-    SettingsPage(),
-  ];
+  late final List<Widget> _widgetOptions;
 
   final iconList = <IconData>[
     Icons.notifications_active_outlined,
@@ -36,6 +31,17 @@ class _NavigationHostPageState extends State<NavigationHostPage> {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _widgetOptions = <Widget>[
+      AlarmsPage(onNavigateRequest: _onItemTapped), 
+      const WatchMarketPage(),
+      const SubscriptionsPage(),
+      const SettingsPage(),
+    ];
   }
 
   @override

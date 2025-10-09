@@ -11,7 +11,16 @@ import 'main.dart';
 import 'locale_provider.dart';
 
 class AlarmsPage extends StatefulWidget {
-  const AlarmsPage({super.key});
+  // YENİ: Dışarıdan bir fonksiyon alacak bir değişken tanımlıyoruz.
+  // Bu fonksiyon bir integer (sayfa indeksi) alacak.
+  final void Function(int) onNavigateRequest;
+
+  // YENİ: Constructor'ı bu fonksiyonu alacak şekilde güncelliyoruz.
+  const AlarmsPage({
+    super.key,
+    required this.onNavigateRequest,
+  });
+
   @override
   State<AlarmsPage> createState() => AlarmsPageState();
 }
@@ -201,10 +210,7 @@ class AlarmsPageState extends State<AlarmsPage> {
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pop(dialogContext);
-                    // TODO: Kullanıcıyı abonelik sayfasına yönlendir.
-                    // Örneğin: DefaultTabController.of(context)?.animateTo(2);
-                    // veya Provider ile state yönetimi yaparak sayfa geçişini tetikle.
-                    print("Abonelik sayfasına yönlendirilecek.");
+                    widget.onNavigateRequest(2);
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade600),
                   child: Text(localizations.upgrade, style: const TextStyle(color: Colors.black)),
