@@ -9,12 +9,13 @@ from pydantic import BaseModel, Field as PydanticField
 from fastapi import FastAPI, HTTPException, Query, Path, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
-from sqlmodel import SQLModel, Field, create_engine, Session, select, delete
+from sqlmodel import Relationship, SQLModel, Field, create_engine, Session, select, delete
 import yfinance as yf
 
 import firebase_admin
 from firebase_admin import credentials, messaging
 from dotenv import load_dotenv
+from sqlalchemy.orm import joinedload
 
 # ----------------------
 # .env, Config ve Firebase
@@ -95,6 +96,8 @@ class Alert(SQLModel, table=True):
     lower_limit: float
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    user: "User" = Relationship(back_populates="alerts")
+
 class AlertCreate(SQLModel):
     market: str
     symbol: str
@@ -110,6 +113,8 @@ class User(UserSettings, table=True):
     fcm_token: Optional[str] = Field(default=None, index=True)
     plan: str = Field(default="free", index=True) # free, pro, ultra
     last_checked_at: Optional[datetime] = Field(default=None)
+
+    alerts: List["Alert"] = Relationship(back_populates="user")
 
 # ----------------------------
 # DB ve tablo oluşturma
@@ -188,14 +193,14 @@ async def handle_revenuecat_webhook(
 # --- run_price_checks fonksiyonunu bu yeni versiyonla değiştirin ---
 
 # Bu yardımcı fonksiyon, kodu daha temiz tutmak için
-async def check_alerts_for_user(user: User, session: Session, prices: Dict):
-    user_alerts = session.exec(select(Alert).where(Alert.user_uid == user.uid)).all()
+async def check_alerts_for_user(user: User, prices: Dict):
+    # CHANGED: Instead of taking data from the database, we take it from the user object directly.
+    user_alerts = user.alerts
     if not user_alerts:
         return []
 
     alerts_to_delete_ids = []
     for alert in user_alerts:
-        # Dil ve bildirim şablonu ayarları
         lang_code = user.language_code if user.language_code in NOTIFICATION_TEMPLATES else "en"
         template = NOTIFICATION_TEMPLATES[lang_code]
         localized_symbol = METAL_LOCALIZATION_MAP.get(alert.symbol, {}).get(lang_code, alert.symbol)
@@ -226,12 +231,13 @@ async def run_price_checks():
     now = datetime.utcnow()
     try:
         with Session(engine) as session:
-            all_users = session.exec(select(User)).all()
+            query = select(User).options(joinedload(User.alerts))
+            all_users = session.exec(query).unique().all()
+
             if not all_users:
                 print("Kontrol edilecek kullanıcı bulunamadı.")
                 return
 
-            # Kontrol zamanı gelen kullanıcıları ve onların alarmlarını topla
             users_to_check = []
             symbols_to_fetch = set()
 
@@ -241,7 +247,7 @@ async def run_price_checks():
                 
                 should_check = False
                 if plan == 'ultra':
-                    should_check = True # Her dakika kontrol
+                    should_check = True
                 elif plan == 'pro' and (now - last_checked) >= timedelta(minutes=3):
                     should_check = True
                 elif plan == 'free' and (now - last_checked) >= timedelta(minutes=10):
@@ -249,15 +255,16 @@ async def run_price_checks():
 
                 if should_check:
                     users_to_check.append(user)
-                    user_alerts = session.exec(select(Alert.symbol).where(Alert.user_uid == user.uid)).all()
-                    for symbol in user_alerts:
-                        symbols_to_fetch.add(symbol)
+                    # DEĞİŞTİ: Döngü içinde tekrar veritabanı sorgusu yapmak yerine, 
+                    # önceden yüklenmiş alarmları kullanıyoruz.
+                    for alert in user.alerts:
+                        symbols_to_fetch.add(alert.symbol)
 
             if not users_to_check:
                 print("Kontrol zamanı gelen kullanıcı yok. Görev sonlandırıldı.")
                 return
 
-            # Gerekli tüm sembollerin fiyatlarını tek seferde çek
+            # Buradan sonrası aynı...
             prices = {}
             if symbols_to_fetch:
                 price_tasks = [fetch_price(symbol) for symbol in symbols_to_fetch]
@@ -266,15 +273,15 @@ async def run_price_checks():
                     if price is not None:
                         prices[symbol] = price
             
-            # Her uygun kullanıcı için alarmları kontrol et
             total_deleted_alerts = []
             for user in users_to_check:
-                deleted_ids = await check_alerts_for_user(user, session, prices)
+                # check_alerts_for_user'a artık session göndermemize gerek yok,
+                # çünkü alarmlar zaten user objesinin içinde.
+                deleted_ids = await check_alerts_for_user(user, prices)
                 total_deleted_alerts.extend(deleted_ids)
-                user.last_checked_at = now # Son kontrol zamanını güncelle
+                user.last_checked_at = now
                 session.add(user)
 
-            # Tetiklenen tüm alarmları sil ve kullanıcıları güncelle
             if total_deleted_alerts:
                 delete_stmt = delete(Alert).where(Alert.id.in_(total_deleted_alerts))
                 session.exec(delete_stmt)
