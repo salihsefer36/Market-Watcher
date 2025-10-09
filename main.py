@@ -59,7 +59,10 @@ engine = create_engine(DB_URL, echo=False)
 # --- YENİ CACHE MEKANİZMASI ---
 # /prices endpoint'i için basit bir in-memory cache
 # ----------------------
-_prices_cache: Dict = {"timestamp": None, "data": None}
+_prices_cache: Dict = {
+    "base_data": {"timestamp": None, "data": None},  # BIST, NASDAQ, CRYPTO için
+    "metals_data": {}  # Para birimine göre cache tutulacak (örn: {"TRY": {...}, "EUR": {...}})
+}
 _prices_cache_lock = asyncio.Lock()
 CACHE_DURATION = timedelta(seconds=30) # Cache'in 30 saniye geçerli olmasını sağlar
 
