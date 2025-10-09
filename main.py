@@ -780,6 +780,44 @@ async def get_crypto_prices(n=50):
                 results.append({"symbol": sym[:-4], "price": price}) # USDT son ekini kaldır
     return results
 
+@app.get("/prices")
+async def get_all_prices(user_uid: Optional[str] = Query(None)):
+    global _prices_cache
+    
+    async with _prices_cache_lock:
+        # Cache'i kontrol et
+        if _prices_cache.get("timestamp") and (datetime.utcnow() - _prices_cache["timestamp"]) < CACHE_DURATION:
+            print("Cache'den yanıt veriliyor.")
+            return _prices_cache["data"]
+
+        # Cache boş veya süresi geçmişse, verileri yeniden çek
+        print("Cache boş veya süresi geçmiş. API'ler çağrılıyor.")
+        if user_uid is None:
+            raise HTTPException(status_code=400, detail="Fiyatları çekmek için Kullanıcı ID'si gereklidir.")
+
+        bist_task = get_bist_prices()
+        nasdaq_task = get_nasdaq_prices()
+        crypto_task = get_crypto_prices()
+        
+        # get_metals senkron olduğu için doğrudan çağırıyoruz
+        metals_dict = get_metals(user_uid=user_uid) 
+        
+        # API çağrılarını aynı anda çalıştır
+        bist, nasdaq, crypto = await asyncio.gather(bist_task, nasdaq_task, crypto_task)
+        
+        # Sonuçları birleştir
+        metals = [{"market": "METALS", "symbol": k, "price": v} for k, v in metals_dict.items()]
+        bist = [{"market": "BIST", **item} for item in bist]
+        nasdaq = [{"market": "NASDAQ", **item} for item in nasdaq]
+        crypto = [{"market": "CRYPTO", **item} for item in crypto]
+        all_data = bist + nasdaq + crypto + metals
+
+        # Cache'i güncelle
+        _prices_cache["data"] = all_data
+        _prices_cache["timestamp"] = datetime.utcnow()
+        
+        return all_data
+    
 @app.get("/symbols_with_name")
 async def symbols_with_name(market: str, n: int = 50):
     market = market.upper()
