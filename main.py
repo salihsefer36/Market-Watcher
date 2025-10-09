@@ -107,6 +107,8 @@ class UserSettings(SQLModel):
 class User(UserSettings, table=True):
     uid: str = Field(primary_key=True)
     fcm_token: Optional[str] = Field(default=None, index=True)
+    plan: str = Field(default="free", index=True) # free, pro, ultra
+    last_checked_at: Optional[datetime] = Field(default=None)
 
 # ----------------------------
 # DB ve tablo oluşturma
@@ -121,70 +123,104 @@ def on_startup():
 # ----------------------------
 # --- YENİ CRON JOB ENDPOINT'i ve MANTIĞI ---
 # ----------------------------
+# --- run_price_checks fonksiyonunu bu yeni versiyonla değiştirin ---
+
+# Bu yardımcı fonksiyon, kodu daha temiz tutmak için
+async def check_alerts_for_user(user: User, session: Session, prices: Dict):
+    user_alerts = session.exec(select(Alert).where(Alert.user_uid == user.uid)).all()
+    if not user_alerts:
+        return []
+
+    alerts_to_delete_ids = []
+    for alert in user_alerts:
+        # Dil ve bildirim şablonu ayarları
+        lang_code = user.language_code if user.language_code in NOTIFICATION_TEMPLATES else "en"
+        template = NOTIFICATION_TEMPLATES[lang_code]
+        localized_symbol = METAL_LOCALIZATION_MAP.get(alert.symbol, {}).get(lang_code, alert.symbol)
+        
+        current_price = prices.get(alert.symbol)
+        if current_price is None:
+            continue
+
+        if current_price >= alert.upper_limit or current_price <= alert.lower_limit:
+            if user.notifications_enabled and user.fcm_token:
+                is_increase = current_price >= alert.upper_limit
+                direction_text = template["increased"] if is_increase else template["decreased"]
+                
+                title = template["title"].format(symbol=localized_symbol)
+                body = template["body"].format(
+                    symbol=localized_symbol,
+                    percentage=alert.percentage,
+                    direction=direction_text,
+                    price=current_price
+                )
+                send_push_notification(token=user.fcm_token, title=title, body=body)
+            
+            alerts_to_delete_ids.append(alert.id)
+    return alerts_to_delete_ids
+
 async def run_price_checks():
-    """
-    Bu fonksiyon artık bir döngü içinde değil, tek seferlik bir kontrol yapar.
-    Tüm alarmları kontrol eder, bildirim gönderir ve tetiklenen alarmları siler.
-    """
     print("Arka plan fiyat kontrolü başladı...")
+    now = datetime.utcnow()
     try:
         with Session(engine) as session:
-            all_alerts = session.exec(select(Alert)).all()
-            if not all_alerts:
-                print("Kontrol edilecek alarm bulunamadı. Görev sonlandırıldı.")
+            all_users = session.exec(select(User)).all()
+            if not all_users:
+                print("Kontrol edilecek kullanıcı bulunamadı.")
                 return
 
-            all_users = session.exec(select(User)).all()
-            user_preferences = {user.uid: user for user in all_users}
+            # Kontrol zamanı gelen kullanıcıları ve onların alarmlarını topla
+            users_to_check = []
+            symbols_to_fetch = set()
 
-        unique_symbols = {alert.symbol for alert in all_alerts}
-        
-        prices = {}
-        # Asenkron olarak tüm fiyatları çek
-        price_tasks = [fetch_price(symbol) for symbol in unique_symbols]
-        price_results = await asyncio.gather(*price_tasks)
-        
-        for symbol, price in zip(unique_symbols, price_results):
-            if price is not None:
-                prices[symbol] = price
-        
-        alerts_to_delete_ids = []
-        for alert in all_alerts:
-            user_settings = user_preferences.get(alert.user_uid)
-            if not user_settings or not user_settings.fcm_token:
-                continue 
-
-            notifications_on = user_settings.notifications_enabled
-            lang_code = user_settings.language_code if user_settings.language_code in NOTIFICATION_TEMPLATES else "en"
-            template = NOTIFICATION_TEMPLATES[lang_code]
-            localized_symbol = METAL_LOCALIZATION_MAP.get(alert.symbol, {}).get(lang_code, alert.symbol)
-            
-            current_price = prices.get(alert.symbol)
-            if current_price is None:
-                continue
-
-            if current_price >= alert.upper_limit or current_price <= alert.lower_limit:
-                if notifications_on:
-                    is_increase = current_price >= alert.upper_limit
-                    direction_text = template["increased"] if is_increase else template["decreased"]
-                    
-                    title = template["title"].format(symbol=localized_symbol)
-                    body = template["body"].format(
-                        symbol=localized_symbol,
-                        percentage=alert.percentage,
-                        direction=direction_text,
-                        price=current_price
-                    )
-                    send_push_notification(token=user_settings.fcm_token, title=title, body=body)
+            for user in all_users:
+                plan = user.plan
+                last_checked = user.last_checked_at or datetime.min
                 
-                alerts_to_delete_ids.append(alert.id)
+                should_check = False
+                if plan == 'ultra':
+                    should_check = True # Her dakika kontrol
+                elif plan == 'pro' and (now - last_checked) >= timedelta(minutes=3):
+                    should_check = True
+                elif plan == 'free' and (now - last_checked) >= timedelta(minutes=10):
+                    should_check = True
 
-        if alerts_to_delete_ids:
-            with Session(engine) as session:
-                delete_stmt = delete(Alert).where(Alert.id.in_(alerts_to_delete_ids))
+                if should_check:
+                    users_to_check.append(user)
+                    user_alerts = session.exec(select(Alert.symbol).where(Alert.user_uid == user.uid)).all()
+                    for symbol in user_alerts:
+                        symbols_to_fetch.add(symbol)
+
+            if not users_to_check:
+                print("Kontrol zamanı gelen kullanıcı yok. Görev sonlandırıldı.")
+                return
+
+            # Gerekli tüm sembollerin fiyatlarını tek seferde çek
+            prices = {}
+            if symbols_to_fetch:
+                price_tasks = [fetch_price(symbol) for symbol in symbols_to_fetch]
+                price_results = await asyncio.gather(*price_tasks)
+                for symbol, price in zip(symbols_to_fetch, price_results):
+                    if price is not None:
+                        prices[symbol] = price
+            
+            # Her uygun kullanıcı için alarmları kontrol et
+            total_deleted_alerts = []
+            for user in users_to_check:
+                deleted_ids = await check_alerts_for_user(user, session, prices)
+                total_deleted_alerts.extend(deleted_ids)
+                user.last_checked_at = now # Son kontrol zamanını güncelle
+                session.add(user)
+
+            # Tetiklenen tüm alarmları sil ve kullanıcıları güncelle
+            if total_deleted_alerts:
+                delete_stmt = delete(Alert).where(Alert.id.in_(total_deleted_alerts))
                 session.exec(delete_stmt)
-                session.commit()
-                print(f"{len(alerts_to_delete_ids)} adet tetiklenen alarm silindi.")
+            
+            session.commit()
+            if total_deleted_alerts:
+                print(f"{len(total_deleted_alerts)} adet tetiklenen alarm silindi.")
+            print(f"{len(users_to_check)} kullanıcının alarmları kontrol edildi.")
 
     except Exception as e:
         print(f"KRİTİK HATA (run_price_checks): {e}")
