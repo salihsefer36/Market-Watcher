@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; 
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'l10n/app_localizations.dart';
 import 'locale_provider.dart';
 import 'main.dart';
+import 'package:flutter_animate/flutter_animate.dart'; 
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -40,6 +42,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _loadSettings() async {
+    // This function remains unchanged
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) {
@@ -69,6 +72,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveSettings({bool? notifications, String? langCode}) async {
+    // This function remains unchanged
     if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
@@ -103,12 +107,17 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
+    final user = FirebaseAuth.instance.currentUser;
 
     return _isLoading
         ? Center(child: CircularProgressIndicator(color: Colors.amber.shade400))
         : ListView(
-            padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
+            padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 16.w),
             children: [
+              // NEW: User profile header card
+              _buildUserProfileHeader(user, localizations),
+              SizedBox(height: 20.h),
+              
               _buildSectionHeader(localizations.general),
               _buildSettingsCard(
                 children: [
@@ -118,6 +127,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
               SizedBox(height: 30.h),
+              
               _buildSectionHeader(localizations.account),
               _buildSettingsCard(
                 children: [
@@ -125,14 +135,74 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
               SizedBox(height: 30.h),
+              
               Center(
                 child: Text(
                   'Market Watcher v1.0.1',
                   style: TextStyle(color: Colors.grey.shade700, fontSize: 12.sp),
                 ),
               )
-            ],
+            ]
+            // NEW: Add fluid animations to all setting elements
+            .animate(interval: 100.ms)
+            .fadeIn(duration: 400.ms, curve: Curves.easeOutCubic)
+            .slideY(begin: 0.2, duration: 400.ms, curve: Curves.easeOutCubic),
           );
+  }
+
+  // NEW: User profile card widget
+  Widget _buildUserProfileHeader(User? user, AppLocalizations localizations) {
+    // Kullanıcının profil fotoğrafı URL'sini alıyoruz
+    final photoUrl = user?.photoURL;
+    // Kullanıcı adının baş harfini almak için bir değişken
+    final String initial = user?.displayName?.isNotEmpty == true
+        ? user!.displayName!.substring(0, 1).toUpperCase()
+        : (user?.email?.isNotEmpty == true ? user!.email!.substring(0, 1).toUpperCase() : "?");
+
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade900.withOpacity(0.7),
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: Colors.amber.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 32.r,
+            backgroundColor: Colors.amber.withOpacity(0.2),
+            // DEĞİŞTİ: photoUrl varsa NetworkImage ile resmi gösteriyoruz.
+            // Eğer photoUrl yoksa (null ise), o zaman baş harfi gösteriyoruz.
+            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+            child: photoUrl == null
+                ? Text(
+                    initial,
+                    style: TextStyle(fontSize: 28.sp, color: Colors.amber.shade400, fontWeight: FontWeight.bold),
+                  )
+                : null, // Resim varken harfi gösterme
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user?.displayName ?? "Anonymous User",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18.sp),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  user?.email ?? '',
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 14.sp),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSettingsCard({required List<Widget> children}) {
@@ -143,7 +213,11 @@ class _SettingsPageState extends State<SettingsPage> {
         border: Border.all(color: Colors.amber.withOpacity(0.2), width: 1.0),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 5))],
       ),
-      child: Column(children: children),
+      // Use ClipRRect to ensure children respect the border radius
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16.r),
+        child: Column(children: children),
+      ),
     );
   }
 
@@ -153,7 +227,7 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Text(
         title.toUpperCase(),
         style: TextStyle(
-          color: Colors.amber.shade400, 
+          color: Colors.amber.shade400,
           fontSize: 14.sp,
           fontWeight: FontWeight.bold,
           letterSpacing: 1.5,
@@ -165,13 +239,16 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _buildLanguageTile(AppLocalizations localizations) {
     return ListTile(
       leading: Icon(Icons.language_outlined, color: Colors.amber.shade400),
-      title: Text(localizations.applicationLanguage, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+      title: Text(localizations.applicationLanguage, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
       subtitle: Text(
         _supportedLanguages[_currentLanguageCode] ?? 'English',
         style: TextStyle(color: Colors.grey.shade400),
       ),
       trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
-      onTap: () => _showLanguageDialog(localizations),
+      onTap: () {
+        HapticFeedback.lightImpact(); // NEW: Haptic feedback
+        _showLanguageDialog(localizations);
+      },
     );
   }
 
@@ -183,6 +260,7 @@ class _SettingsPageState extends State<SettingsPage> {
       value: _notificationsEnabled,
       activeColor: Colors.amber.shade400,
       onChanged: _isSaving ? null : (bool value) {
+        HapticFeedback.lightImpact(); // NEW: Haptic feedback
         setState(() => _notificationsEnabled = value);
         _saveSettings(notifications: value);
       },
@@ -194,42 +272,64 @@ class _SettingsPageState extends State<SettingsPage> {
       leading: Icon(Icons.logout, color: Colors.red.shade400),
       title: Text(localizations.signOut, style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600)),
       onTap: () async {
-        Navigator.pop(context);
+        HapticFeedback.mediumImpact(); // NEW: More distinct haptic feedback
         await FirebaseAuth.instance.signOut();
         await GoogleSignIn().signOut();
+        // Check if the widget is still in the tree before popping
+        if(mounted) Navigator.of(context).popUntil((route) => route.isFirst);
       },
     );
   }
 
+  // CHANGED: AlertDialog is now styled to match the app's theme
   void _showLanguageDialog(AppLocalizations localizations) {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey.shade900,
-          title: Text(localizations.applicationLanguage, style: const TextStyle(color: Colors.white)),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: _supportedLanguages.entries.map((entry) {
-                  final isSelected = _currentLanguageCode == entry.key;
-                  return ListTile(
-                    title: Text(entry.value, style: TextStyle(color: isSelected ? Colors.amber.shade400 : Colors.white)),
-                    trailing: isSelected ? Icon(Icons.check, color: Colors.amber.shade400) : null,
-                    onTap: () => _onLanguageSelected(entry.key),
-                  );
-                }).toList(),
-              ),
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.all(24.w),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black87], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(20.r),
+              border: Border.all(color: Colors.amber.withOpacity(0.7), width: 1.5),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: 24.h, bottom: 8.h),
+                  child: Text(localizations.applicationLanguage, style: TextStyle(color: Colors.amber.shade400, fontSize: 20.sp, fontWeight: FontWeight.bold)),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _supportedLanguages.entries.map((entry) {
+                        final isSelected = _currentLanguageCode == entry.key;
+                        return ListTile(
+                          title: Text(entry.value, style: TextStyle(color: isSelected ? Colors.amber.shade400 : Colors.white)),
+                          trailing: isSelected ? Icon(Icons.check_circle, color: Colors.amber.shade400) : null,
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            _onLanguageSelected(entry.key);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.all(8.w),
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text("Close", style: TextStyle(color: Colors.grey.shade400)),
+                  ),
+                ),
+              ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(localizations.cancel, style: TextStyle(color: Colors.amber.shade400)),
-            )
-          ],
         );
       },
     );
@@ -237,11 +337,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _onLanguageSelected(String langCode) {
     Provider.of<LocaleProvider>(context, listen: false).setLocale(langCode);
-    
     setState(() => _currentLanguageCode = langCode);
-    
     _saveSettings(langCode: langCode);
-    
     Navigator.pop(context);
   }
 }

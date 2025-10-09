@@ -584,14 +584,11 @@ class AlarmsPageState extends State<AlarmsPage> {
         child: const Icon(Icons.add_alert_rounded, size: 28),
       ),
       body: Padding(
-        // DEĞİŞTİ: Kartı yukarıdan biraz aşağı almak için üst padding'i artırdık.
         padding: EdgeInsets.fromLTRB(16.w, 24.h, 16.w, 16.h),
         child: Column(
           children: [
-            // DEĞİŞTİ: Kartın etrafına Expanded yerine bir Container sarıp
-            // belirli bir yükseklik yüzdesi veriyoruz.
             Container(
-              height: MediaQuery.of(context).size.height * 0.7, // Ekran yüksekliğinin %70'i
+              height: MediaQuery.of(context).size.height * 0.7, 
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.grey.shade900.withOpacity(0.6),

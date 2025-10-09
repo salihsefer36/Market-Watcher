@@ -1,3 +1,5 @@
+// navigation_host.dart
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -6,6 +8,8 @@ import 'watch_market_page.dart';
 import 'subscriptions_page.dart';
 import 'settings_page.dart';
 import 'l10n/app_localizations.dart';
+
+// DEĞİŞTİ: animated_bottom_navigation_bar import'u kaldırıldı.
 
 class NavigationHostPage extends StatefulWidget {
   const NavigationHostPage({super.key});
@@ -24,6 +28,13 @@ class _NavigationHostPageState extends State<NavigationHostPage> {
     SettingsPage(),
   ];
 
+  final iconList = <IconData>[
+    Icons.notifications_active_outlined,
+    Icons.bar_chart_rounded,
+    Icons.workspace_premium_outlined,
+    Icons.settings_outlined,
+  ];
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -35,10 +46,16 @@ class _NavigationHostPageState extends State<NavigationHostPage> {
     final localizations = AppLocalizations.of(context)!;
     final user = FirebaseAuth.instance.currentUser;
 
-    // DEĞİŞTİ: Başlıklar dinamik hale getirildi.
     final pageTitles = [
-      user?.displayName ?? localizations.marketWatcher, // Alarmlar sayfasında kullanıcı adı gösterilecek
+      user?.displayName ?? localizations.marketWatcher,
       localizations.watchMarkets,
+      localizations.subscriptions,
+      localizations.settings,
+    ];
+
+    final pageLabels = [
+      localizations.alarms,
+      localizations.markets,
       localizations.subscriptions,
       localizations.settings,
     ];
@@ -56,48 +73,69 @@ class _NavigationHostPageState extends State<NavigationHostPage> {
         appBar: AppBar(
           elevation: 0,
           backgroundColor: Colors.transparent,
-          // DEĞİŞTİ: Artık başlık seçili sekmeye göre değişiyor
-          title: Text(
-            pageTitles[_selectedIndex],
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 22.sp,
+          title: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, -0.5),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              );
+            },
+            child: Text(
+              pageTitles[_selectedIndex],
+              key: ValueKey<int>(_selectedIndex),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 22.sp,
+              ),
             ),
           ),
-          // DEĞİŞTİ: Sağ üstteki "+" butonu buradan kaldırıldı.
-          actions: null, 
         ),
-        body: Center(
-          child: _widgetOptions.elementAt(_selectedIndex),
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          child: Container(
+            key: ValueKey<int>(_selectedIndex),
+            child: _widgetOptions.elementAt(_selectedIndex),
+          ),
         ),
+        // DEĞİŞTİ: Standart BottomNavigationBar'a geri döndük ve onu özelleştirdik.
         bottomNavigationBar: BottomNavigationBar(
-          items: <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.notifications_active_outlined),
-              label: localizations.alarms,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.bar_chart_rounded),
-              label: localizations.markets,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.workspace_premium_outlined),
-              label: localizations.subscriptions,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.settings_outlined),
-              label: localizations.settings,
-            ),
-          ],
+          items: List.generate(iconList.length, (index) {
+            // YENİ: Her bir menü elemanını animasyonlu bir indikatör ile oluşturuyoruz.
+            return BottomNavigationBarItem(
+              icon: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(iconList[index]),
+                  SizedBox(height: 4.h),
+                ],
+              ),
+              label: pageLabels[index],
+            );
+          }),
           currentIndex: _selectedIndex,
           onTap: _onItemTapped,
           backgroundColor: Colors.grey.shade900.withOpacity(0.8),
           type: BottomNavigationBarType.fixed,
           selectedItemColor: Colors.amber.shade400,
           unselectedItemColor: Colors.grey.shade600,
-          selectedFontSize: 12.sp,
-          unselectedFontSize: 12.sp,
+          selectedLabelStyle: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: TextStyle(fontSize: 12.sp),
+          showSelectedLabels: true,
+          showUnselectedLabels: true,
         ),
       ),
     );

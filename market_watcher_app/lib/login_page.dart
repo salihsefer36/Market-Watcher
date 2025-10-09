@@ -1,8 +1,9 @@
-import 'dart:convert'; // YENİ: crypto için eklendi
-import 'dart:math';   // YENİ: crypto için eklendi
-import 'package:crypto/crypto.dart'; // YENİ: crypto için eklendi
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -10,18 +11,58 @@ import 'l10n/app_localizations.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import 'package:flutter_animate/flutter_animate.dart';
+
 String _generateRandomString([int length = 32]) {
   final random = Random.secure();
   final values = List<int>.generate(length, (i) => random.nextInt(256));
   return base64Url.encode(values);
 }
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
-  // Google ile giriş fonksiyonu (değişiklik yok)
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
+  bool _isLoading = false;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _performSignIn(Future<void> Function() signInMethod) async {
+    HapticFeedback.lightImpact();
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      await signInMethod();
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   Future<void> signInWithGoogle(BuildContext context) async {
-    final localizations = AppLocalizations.of(context)!;
     try {
       if (kIsWeb) {
         GoogleAuthProvider authProvider = GoogleAuthProvider();
@@ -39,14 +80,12 @@ class LoginPage extends StatelessWidget {
     } catch (e) {
       print('Google Sign-In hatası: $e');
       if (context.mounted) {
-        _showErrorSnackBar(context, localizations.noDataFound);
+        _showErrorSnackBar(context, "Error"); // Genel bir hata mesajı
       }
     }
   }
 
-  // YENİ: Facebook ile giriş fonksiyonu
   Future<void> signInWithFacebook(BuildContext context) async {
-    final localizations = AppLocalizations.of(context)!;
     try {
       final result = await FacebookAuth.instance.login();
       if (result.status == LoginStatus.success) {
@@ -54,40 +93,35 @@ class LoginPage extends StatelessWidget {
         await FirebaseAuth.instance.signInWithCredential(credential);
       } else {
         if (context.mounted) {
-          _showErrorSnackBar(context, result.message ?? localizations.noDataFound);
+          _showErrorSnackBar(context, result.message ?? "Error");
         }
       }
     } catch (e) {
       print('Facebook Sign-In hatası: $e');
       if (context.mounted) {
-        _showErrorSnackBar(context, localizations.noDataFound);
+        _showErrorSnackBar(context, "Error");
       }
     }
   }
 
   Future<void> signInWithApple(BuildContext context) async {
-    final localizations = AppLocalizations.of(context)!;
-    
     final rawNonce = _generateRandomString();
     final nonce = sha256.convert(utf8.encode(rawNonce)).toString();
 
     try {
       final appleCredential = await SignInWithApple.getAppleIDCredential(
         scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
-        nonce: nonce, 
+        nonce: nonce,
       );
-
       final credential = OAuthProvider("apple.com").credential(
         idToken: appleCredential.identityToken,
-        rawNonce: rawNonce, 
+        rawNonce: rawNonce,
       );
-
       await FirebaseAuth.instance.signInWithCredential(credential);
-
     } catch (e) {
       print('Apple Sign-In hatası: $e');
       if (context.mounted) {
-        _showErrorSnackBar(context, localizations.noDataFound);
+        _showErrorSnackBar(context, "Error");
       }
     }
   }
@@ -120,78 +154,103 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
+    
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [Colors.grey.shade900, Colors.black], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 40.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Spacer(flex: 2),
-                Icon(
-                  Icons.insights_rounded,
-                  size: 100.sp,
-                  color: Colors.amber.shade400,
-                  shadows: [
-                    BoxShadow(color: Colors.amber.shade400.withOpacity(0.8), blurRadius: 30.0, spreadRadius: 5.0)
-                  ],
-                ),
-                SizedBox(height: 24.h),
-                Text(
+      body: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.grey.shade900, Colors.black],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          
+          SafeArea(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Spacer(flex: 2),
+                  
+                  ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: Icon(
+                      Icons.insights_rounded,
+                      size: 100.sp,
+                      color: Colors.amber.shade400,
+                      shadows: [
+                        BoxShadow(color: Colors.amber.shade400.withOpacity(0.8), blurRadius: 30.0, spreadRadius: 5.0)
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 24.h),
+                  
+                  Text(
                     localizations.marketWatcher,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 40.sp, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5)
-                ),
-                SizedBox(height: 12.h),
-                Text(localizations.instantMarketAlarms, textAlign: TextAlign.center, style: TextStyle(fontSize: 18.sp, color: Colors.grey.shade300, fontWeight: FontWeight.w300)),
-                const Spacer(flex: 3),
-
-                // Google Butonu (Mevcut hali)
-                _buildLoginButton(
-                  context: context,
-                  onTap: () => signInWithGoogle(context),
-                  gradientColors: const [Color(0xFFFFB300), Colors.amberAccent],
-                  icon: Image.network('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/200px-Google_%22G%22_logo.svg.png', height: 24.h),
-                  text: localizations.continueWithGoogle,
-                  textColor: Colors.black,
-                ),
-                SizedBox(height: 16.h),
-
-                // YENİ: Facebook Butonu
-                _buildLoginButton(
-                  context: context,
-                  onTap: () => signInWithFacebook(context),
-                  gradientColors: const [Color(0xFF1877F2), Color(0xFF4267B2)],
-                  icon: const Icon(Icons.facebook, color: Colors.white),
-                  text: "Continue with Facebook", // Bunu l10n klasörünüze ekleyin
-                  textColor: Colors.white,
-                ),
-                SizedBox(height: 16.h),
-
-                // YENİ: Apple Butonu (Sadece Apple platformlarında görünür)
-                if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS))
-                  SignInWithAppleButton(
-                    text: "Continue with Apple", // Bunu l10n klasörünüze ekleyin
-                    style: SignInWithAppleButtonStyle.black,
-                    borderRadius: BorderRadius.all(Radius.circular(16.r)),
-                    onPressed: () => signInWithApple(context),
-                    height: 60.h,
                   ),
-              ],
+                  SizedBox(height: 12.h),
+                  
+                  Text(
+                    localizations.instantMarketAlarms,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18.sp, color: Colors.grey.shade300, fontWeight: FontWeight.w300)
+                  ),
+                  const Spacer(flex: 3),
+
+                  _buildLoginButton(
+                    onTap: () => _performSignIn(() => signInWithGoogle(context)),
+                    gradientColors: const [Color(0xFFFFB300), Colors.amberAccent],
+                    icon: Image.asset('assets/images/google_logo.png', height: 24.h),
+                    text: localizations.continueWithGoogle,
+                    textColor: Colors.black,
+                  ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOut),
+                  
+                  SizedBox(height: 16.h),
+                  
+                  _buildLoginButton(
+                    onTap: () => _performSignIn(() => signInWithFacebook(context)),
+                    gradientColors: const [Color(0xFF1877F2), Color(0xFF4267B2)],
+                    icon: const Icon(Icons.facebook, color: Colors.white),
+                    text: "Continue with Facebook",
+                    textColor: Colors.white,
+                  ).animate().fadeIn(delay: 600.ms, duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOut),
+                  
+                  SizedBox(height: 16.h),
+                  
+                  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS))
+                    SignInWithAppleButton(
+                      text: "Continue With Apple",
+                      style: SignInWithAppleButtonStyle.white,
+                      borderRadius: BorderRadius.all(Radius.circular(16.r)),
+                      onPressed: () => _performSignIn(() => signInWithApple(context)),
+                      height: 60.h,
+                    ).animate().fadeIn(delay: 700.ms, duration: 500.ms).slideY(begin: 0.5, curve: Curves.easeOut),
+                    
+                  const Spacer(flex: 2), // KALDIRILDI: Misafir butonu ve altındaki spacer.
+                ],
+              ),
             ),
           ),
-        ),
+
+          if (_isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.7),
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.amber.shade400),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  // Butonları daha modüler hale getirmek için yardımcı bir widget
   Widget _buildLoginButton({
-    required BuildContext context,
     required VoidCallback onTap,
     required List<Color> gradientColors,
     required Widget icon,

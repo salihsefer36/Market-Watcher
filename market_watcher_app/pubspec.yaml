@@ -27,6 +27,10 @@ dependencies:
   flutter_facebook_auth: ^7.1.0
   sign_in_with_apple: ^7.0.1
   crypto: ^3.0.6
+  particles_flutter: ^1.0.1
+  flutter_animate: ^4.5.2
+  animated_bottom_navigation_bar: ^1.4.0
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
