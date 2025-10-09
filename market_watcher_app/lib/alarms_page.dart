@@ -11,11 +11,8 @@ import 'main.dart';
 import 'locale_provider.dart';
 
 class AlarmsPage extends StatefulWidget {
-  // YENİ: Dışarıdan bir fonksiyon alacak bir değişken tanımlıyoruz.
-  // Bu fonksiyon bir integer (sayfa indeksi) alacak.
   final void Function(int) onNavigateRequest;
 
-  // YENİ: Constructor'ı bu fonksiyonu alacak şekilde güncelliyoruz.
   const AlarmsPage({
     super.key,
     required this.onNavigateRequest,

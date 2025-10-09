@@ -253,17 +253,18 @@ async def run_price_checks():
                 last_checked = user.last_checked_at or datetime.min
                 
                 should_check = False
+               
+                check_interval = timedelta(minutes=10) # Default: free plan
                 if plan == 'ultra':
-                    should_check = True
-                elif plan == 'pro' and (now - last_checked) >= timedelta(minutes=3):
-                    should_check = True
-                elif plan == 'free' and (now - last_checked) >= timedelta(minutes=10):
+                    check_interval = timedelta(minutes=1)
+                elif plan == 'pro':
+                    check_interval = timedelta(minutes=3)
+
+                if (now - last_checked) >= check_interval:
                     should_check = True
 
                 if should_check:
                     users_to_check.append(user)
-                    # DEĞİŞTİ: Döngü içinde tekrar veritabanı sorgusu yapmak yerine, 
-                    # önceden yüklenmiş alarmları kullanıyoruz.
                     for alert in user.alerts:
                         symbols_to_fetch.add(alert.symbol)
 
@@ -271,7 +272,6 @@ async def run_price_checks():
                 print("Kontrol zamanı gelen kullanıcı yok. Görev sonlandırıldı.")
                 return
 
-            # Buradan sonrası aynı...
             prices = {}
             if symbols_to_fetch:
                 price_tasks = [fetch_price(symbol) for symbol in symbols_to_fetch]

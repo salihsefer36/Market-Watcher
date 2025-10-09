@@ -6,8 +6,6 @@ import 'subscriptions_page.dart';
 import 'settings_page.dart';
 import 'l10n/app_localizations.dart';
 
-// DEĞİŞTİ: animated_bottom_navigation_bar import'u kaldırıldı.
-
 class NavigationHostPage extends StatefulWidget {
   const NavigationHostPage({super.key});
 
