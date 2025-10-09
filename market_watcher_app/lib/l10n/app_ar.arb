@@ -61,5 +61,7 @@
     "currentPlan": "الخطة الحالية",
     "upgrade": "ترقية",
     "downgrade": "تخفيض",
-    "anErrorOccurred": "حدث خطأ. الرجاء معاودة المحاولة."
+    "anErrorOccurred": "حدث خطأ. الرجاء معاودة المحاولة.",
+    "alarmLimitReached": "تم الوصول إلى حد التنبيهات",
+    "upgradePlanForMoreAlarms": "يرجى ترقية خطتك الحالية لتعيين المزيد من التنبيهات."
 }

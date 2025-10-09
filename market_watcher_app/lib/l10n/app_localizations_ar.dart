@@ -198,4 +198,11 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get anErrorOccurred => 'حدث خطأ. الرجاء معاودة المحاولة.';
+
+  @override
+  String get alarmLimitReached => 'تم الوصول إلى حد التنبيهات';
+
+  @override
+  String get upgradePlanForMoreAlarms =>
+      'يرجى ترقية خطتك الحالية لتعيين المزيد من التنبيهات.';
 }

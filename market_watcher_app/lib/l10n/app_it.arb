@@ -61,5 +61,7 @@
   "currentPlan": "Piano attuale",
   "upgrade": "Aggiorna",
   "downgrade": "Declassa",
-  "anErrorOccurred": "Si è verificato un errore. Riprova."
+  "anErrorOccurred": "Si è verificato un errore. Riprova.",
+  "alarmLimitReached": "Limite allarmi raggiunto",
+  "upgradePlanForMoreAlarms": "Aggiorna il tuo piano attuale per impostare più allarmi."
 }

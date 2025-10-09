@@ -179,10 +179,47 @@ class AlarmsPageState extends State<AlarmsPage> {
           ? await http.put(uri, headers: {"Content-Type": "application/json"}, body: body)
           : await http.post(uri, headers: {"Content-Type": "application/json"}, body: body);
 
+      if (res.statusCode == 403) { 
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              backgroundColor: Colors.grey.shade900,
+              title: Text(
+                localizations.alarmLimitReached,
+                style: TextStyle(color: Colors.amber.shade400, fontWeight: FontWeight.bold),
+              ),
+              content: Text(
+                localizations.upgradePlanForMoreAlarms, 
+                style: const TextStyle(color: Colors.white),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(localizations.cancel, style: const TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    // TODO: Kullanıcıyı abonelik sayfasına yönlendir.
+                    // Örneğin: DefaultTabController.of(context)?.animateTo(2);
+                    // veya Provider ile state yönetimi yaparak sayfa geçişini tetikle.
+                    print("Abonelik sayfasına yönlendirilecek.");
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade600),
+                  child: Text(localizations.upgrade, style: const TextStyle(color: Colors.black)),
+                ),
+              ],
+            ),
+          );
+        }
+        return; 
+      }
+
       if (res.statusCode == 200) {
         await _fetchUserAlarms();
       } else {
-        print("Error creating/editing alarm: ${res.body}");
+        print("Error creating/editing alarm (status ${res.statusCode}): ${res.body}");
       }
     } catch (e) {
       print("Create/Edit alarm error: $e");

@@ -62,5 +62,7 @@
   "currentPlan": "Mevcut Plan",
   "upgrade": "Yükselt",
   "downgrade": "Düşür",
-  "anErrorOccurred": "Bir hata oluştu. Lütfen tekrar deneyin."
+  "anErrorOccurred": "Bir hata oluştu. Lütfen tekrar deneyin.",
+  "alarmLimitReached": "Alarm Limitine Ulaştınız",
+  "upgradePlanForMoreAlarms": "Daha fazla alarm kurabilmek için lütfen mevcut planınızı yükseltin."
 }

@@ -487,6 +487,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'An error occurred. Please try again.'**
   String get anErrorOccurred;
+
+  /// No description provided for @alarmLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'Alarm Limit Reached'**
+  String get alarmLimitReached;
+
+  /// No description provided for @upgradePlanForMoreAlarms.
+  ///
+  /// In en, this message translates to:
+  /// **'Please upgrade your current plan to set more alarms.'**
+  String get upgradePlanForMoreAlarms;
 }
 
 class _AppLocalizationsDelegate

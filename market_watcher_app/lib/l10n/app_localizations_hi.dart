@@ -198,4 +198,11 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get anErrorOccurred => 'एक त्रुटि हुई। कृपया पुन: प्रयास करें।';
+
+  @override
+  String get alarmLimitReached => 'अलार्म सीमा तक पहुंच गया है';
+
+  @override
+  String get upgradePlanForMoreAlarms =>
+      'अधिक अलार्म सेट करने के लिए कृपया अपनी वर्तमान योजना को अपग्रेड करें।';
 }

@@ -61,5 +61,7 @@
   "currentPlan": "当前计划",
   "upgrade": "升级",
   "downgrade": "降级",
-  "anErrorOccurred": "发生错误，请重试。"
+  "anErrorOccurred": "发生错误，请重试。",
+  "alarmLimitReached": "已达到警报上限",
+  "upgradePlanForMoreAlarms": "请升级您当前的计划以设置更多警报。"
 }

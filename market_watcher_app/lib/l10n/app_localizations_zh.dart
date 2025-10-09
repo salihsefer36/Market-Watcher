@@ -197,4 +197,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get anErrorOccurred => '发生错误，请重试。';
+
+  @override
+  String get alarmLimitReached => '已达到警报上限';
+
+  @override
+  String get upgradePlanForMoreAlarms => '请升级您当前的计划以设置更多警报。';
 }

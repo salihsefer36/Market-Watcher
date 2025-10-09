@@ -61,5 +61,7 @@
   "currentPlan": "Plan actuel",
   "upgrade": "Mettre à niveau",
   "downgrade": "Rétrograder",
-  "anErrorOccurred": "Une erreur est survenue. Veuillez réessayer."
+  "anErrorOccurred": "Une erreur est survenue. Veuillez réessayer.",
+  "alarmLimitReached": "Limite d'alarmes atteinte",
+  "upgradePlanForMoreAlarms": "Veuillez mettre à niveau votre plan actuel pour définir plus d'alarmes."
 }

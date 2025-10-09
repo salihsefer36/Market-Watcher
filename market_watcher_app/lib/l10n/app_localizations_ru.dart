@@ -199,4 +199,11 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get anErrorOccurred =>
       'Произошла ошибка. Пожалуйста, попробуйте еще раз.';
+
+  @override
+  String get alarmLimitReached => 'Достигнут лимит оповещений';
+
+  @override
+  String get upgradePlanForMoreAlarms =>
+      'Пожалуйста, обновите ваш текущий план, чтобы установить больше оповещений.';
 }

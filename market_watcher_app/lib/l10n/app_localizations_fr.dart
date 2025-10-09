@@ -198,4 +198,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get anErrorOccurred => 'Une erreur est survenue. Veuillez réessayer.';
+
+  @override
+  String get alarmLimitReached => 'Limite d\'alarmes atteinte';
+
+  @override
+  String get upgradePlanForMoreAlarms =>
+      'Veuillez mettre à niveau votre plan actuel pour définir plus d\'alarmes.';
 }

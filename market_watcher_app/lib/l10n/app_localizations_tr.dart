@@ -198,4 +198,11 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get anErrorOccurred => 'Bir hata oluştu. Lütfen tekrar deneyin.';
+
+  @override
+  String get alarmLimitReached => 'Alarm Limitine Ulaştınız';
+
+  @override
+  String get upgradePlanForMoreAlarms =>
+      'Daha fazla alarm kurabilmek için lütfen mevcut planınızı yükseltin.';
 }

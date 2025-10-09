@@ -61,5 +61,7 @@
   "currentPlan": "現在のプラン",
   "upgrade": "アップグレード",
   "downgrade": "ダウングレード",
-  "anErrorOccurred": "エラーが発生しました。もう一度お試しください。"
+  "anErrorOccurred": "エラーが発生しました。もう一度お試しください。",
+  "alarmLimitReached": "アラームの上限に達しました",
+  "upgradePlanForMoreAlarms": "さらにアラームを設定するには、現在のプランをアップグレードしてください。"
 }

@@ -62,5 +62,7 @@
   "currentPlan": "Current Plan",
   "upgrade": "Upgrade",
   "downgrade": "Downgrade",
-  "anErrorOccurred": "An error occurred. Please try again."
+  "anErrorOccurred": "An error occurred. Please try again.",
+  "alarmLimitReached": "Alarm Limit Reached",
+  "upgradePlanForMoreAlarms": "Please upgrade your current plan to set more alarms."
 }

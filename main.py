@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field as PydanticField
 from fastapi import FastAPI, HTTPException, Query, Path, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
+from sqlalchemy import func
 from sqlmodel import Relationship, SQLModel, Field, create_engine, Session, select, delete
 import yfinance as yf
 
@@ -40,6 +41,12 @@ if not firebase_json_str:
 
 cred_dict = json.loads(firebase_json_str)
 cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n").replace("\r", "")
+
+PLAN_LIMITS = {
+    "free": 5,
+    "pro": 20,
+    "ultra": float('inf') # float('inf') sonsuz anlamına gelir, yani limitsiz.
+}
 
 if not firebase_admin._apps:
     cred = credentials.Certificate(cred_dict)
@@ -333,35 +340,61 @@ def register_token(user_uid: str = Query(...), token: str = Query(...)):
         session.commit()
     return {"status": "token registered successfully"}
 
+# --- BU FONKSİYONU GÜNCELLEYİN ---
+
 @app.post("/alerts", response_model=Alert)
 async def create_alert(alert_in: AlertCreate):
     try:
-        current_price_raw = await fetch_price(alert_in.symbol)
-        if current_price_raw is None:
-            raise HTTPException(status_code=400, detail=f"Price not found for symbol: {alert_in.symbol}")
-
-        current_price = float(current_price_raw)
-        perc = float(alert_in.percentage)
-
-        alert = Alert(
-            market=alert_in.market,
-            symbol=alert_in.symbol.upper(),
-            percentage=perc,
-            base_price=current_price,
-            upper_limit=current_price * (1 + perc / 100),
-            lower_limit=current_price * (1 - perc / 100),
-            user_uid=alert_in.user_uid
-        )
-
         with Session(engine) as session:
+            # 1. Adım: Kullanıcının planını ve mevcut alarm sayısını al
+            user = session.get(User, alert_in.user_uid)
+            if not user:
+                raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı.")
+
+            user_plan = user.plan
+            limit = PLAN_LIMITS.get(user_plan, 5) # Bilinmeyen bir plan varsa, free limiti uygulanır
+
+            # Veritabanından kullanıcının mevcut alarm sayısını verimli bir şekilde say
+            count_statement = select(func.count(Alert.id)).where(Alert.user_uid == alert_in.user_uid)
+            user_alarm_count = session.exec(count_statement).one()
+            
+            # 2. Adım: Limiti kontrol et
+            if user_alarm_count >= limit:
+                # Eğer kullanıcı limitine ulaşmışsa, 403 Forbidden hatası döndür
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Alarm limitinize ulaştınız. Daha fazla alarm kurmak için lütfen planınızı yükseltin."
+                )
+
+            # 3. Adım: Limit aşılmadıysa, alarmı oluşturma işlemine devam et
+            current_price_raw = await fetch_price(alert_in.symbol)
+            if current_price_raw is None:
+                raise HTTPException(status_code=400, detail=f"Fiyat bulunamadı: {alert_in.symbol}")
+
+            current_price = float(current_price_raw)
+            perc = float(alert_in.percentage)
+
+            alert = Alert(
+                market=alert_in.market,
+                symbol=alert_in.symbol.upper(),
+                percentage=perc,
+                base_price=current_price,
+                upper_limit=current_price * (1 + perc / 100),
+                lower_limit=current_price * (1 - perc / 100),
+                user_uid=alert_in.user_uid
+            )
+
             session.add(alert)
             session.commit()
             session.refresh(alert)
-        return alert
+            return alert
+            
+    except HTTPException:
+        raise # HTTPException'ları tekrar fırlat ki FastAPI doğru yanıtı versin
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 @app.get("/alerts", response_model=List[Alert])
 def list_alerts(user_uid: Optional[str] = Query(None)):
       with Session(engine) as session:
