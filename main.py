@@ -61,7 +61,7 @@ engine = create_engine(DB_URL, echo=False)
 # ----------------------
 _prices_cache: Dict = {"timestamp": None, "data": None}
 _prices_cache_lock = asyncio.Lock()
-CACHE_DURATION = timedelta(minutes=5) # Cache'in 5 dakika geçerli olmasını sağlar
+CACHE_DURATION = timedelta(seconds=30) # Cache'in 30 saniye geçerli olmasını sağlar
 
 # ----------------------
 # FastAPI Uygulaması
@@ -538,59 +538,56 @@ CURRENCY_TICKERS = {
 # ----------------------------
 # METALS
 # ----------------------------
-@app.get("/metals")
-def get_metals(user_uid: str): 
-    with Session(engine) as session:
-        user = session.get(User, user_uid)
-        language_code = user.language_code if user and user.language_code else 'en'
+async def get_metals(user_uid: str) -> Dict[str, Optional[float]]:
+    try:
+        with Session(engine) as session:
+            user = session.get(User, user_uid)
+            language_code = user.language_code if user and user.language_code else 'en'
+
+        target_currency = LANGUAGE_CURRENCY_MAP.get(language_code, 'USD')
+
+        metal_tickers = {"ALTIN": "GC=F", "GÜMÜŞ": "SI=F", "BAKIR": "HG=F"}
+        required_tickers = list(metal_tickers.values())
         
-    target_currency = LANGUAGE_CURRENCY_MAP.get(language_code, 'USD')
+        usd_to_target_rate = 1.0 # Default to USD
 
-    metals = {
-        "Altın": "GC=F",
-        "Gümüş": "SI=F",
-        "Bakır": "HG=F"
-    }
-    
-    currency_ticker = CURRENCY_TICKERS.get(target_currency)
-    usd_to_target = None
+        if target_currency != "USD":
+            currency_yf_ticker = CURRENCY_TICKERS.get(target_currency)
+            if currency_yf_ticker:
+                required_tickers.append(currency_yf_ticker)
+        
+        loop = asyncio.get_event_loop()
+        data = await loop.run_in_executor(None, 
+            lambda: yf.download(required_tickers, period="1d", progress=False)['Close']
+        )
 
-    if target_currency == "USD":
-        usd_to_target = 1.0
-    elif currency_ticker:
-        try:
-            if target_currency == "EUR":
-                 exchange_rate_raw = yf.Ticker(currency_ticker).history(period="1d")['Close'].iloc[-1]
-                 usd_to_target = 1.0 / exchange_rate_raw
-            else:
-                 usd_to_target = yf.Ticker(currency_ticker).history(period="1d")['Close'].iloc[-1]
+        if data is None or data.empty:
+            raise ValueError("yfinance'dan veri alınamadı.")
 
-        except Exception as e:
-            print(f"Error fetching exchange rate for {target_currency}: {e}")
-            usd_to_target = None
-    
-    if usd_to_target is None and target_currency != "USD":
-        usd_to_target = 1.0
-        print(f"Failed to get {target_currency} rate. Defaulting to USD.")
-
-
-    result = {}
-    for name, ticker_symbol in metals.items():
-        try:
-            price_usd = yf.Ticker(ticker_symbol).history(period="1d")['Close'].iloc[-1]
-            
-            if usd_to_target is not None:
-                price_target = price_usd * usd_to_target
-                gram_price = price_target / 31.1035
-                
-                result[name] = round(gram_price, 2)
+        # Döviz kurunu al
+        if target_currency != "USD" and currency_yf_ticker in data:
+            rate = data[currency_yf_ticker].iloc[-1]
+            if target_currency == "EUR": # EURUSD=X kuru EUR/USD'dir, bize USD/EUR lazım
+                usd_to_target_rate = 1.0 / rate if rate != 0 else 0
+            else: # Diğerleri (TRY=X vb.) zaten USD/CURRENCY şeklindedir
+                usd_to_target_rate = rate
+        
+        result = {}
+        for name, ticker in metal_tickers.items():
+            if ticker in data and not data[ticker].dropna().empty:
+                price_usd_ounce = data[ticker].iloc[-1]
+                price_target_ounce = price_usd_ounce * usd_to_target_rate
+                price_target_gram = price_target_ounce / 31.1035
+                result[name] = round(price_target_gram, 2)
             else:
                 result[name] = None
-        except Exception as e:
-            print(f"Error fetching metal {name}: {e}")
-            result[name] = None
-            
-    return result
+        
+        return result
+
+    except Exception as e:
+        print(f"KRİTİK HATA (get_metals): {e}")
+        traceback.print_exc()
+        return {"Altın": None, "Gümüş": None, "Bakır": None}
 
 # ----------------------------
 # BIST Symbols & Prices
@@ -800,7 +797,7 @@ async def get_all_prices(user_uid: Optional[str] = Query(None)):
         crypto_task = get_crypto_prices()
         
         # get_metals senkron olduğu için doğrudan çağırıyoruz
-        metals_dict = get_metals(user_uid=user_uid) 
+        metals_dict = await get_metals(user_uid=user_uid) 
         
         # API çağrılarını aynı anda çalıştır
         bist, nasdaq, crypto = await asyncio.gather(bist_task, nasdaq_task, crypto_task)
