@@ -148,14 +148,11 @@ class _SettingsPageState extends State<SettingsPage> {
             .slideY(begin: 0.2, duration: 400.ms, curve: Curves.easeOutCubic),
           );
   }
-
+  
   Widget _buildUserProfileHeader(User? user, AppLocalizations localizations) {
-    final photoUrl = user?.photoURL;
     final String initial = user?.displayName?.isNotEmpty == true
         ? user!.displayName!.substring(0, 1).toUpperCase()
         : (user?.email?.isNotEmpty == true ? user!.email!.substring(0, 1).toUpperCase() : "?");
-
-    final bool hasValidPhotoUrl = photoUrl != null && photoUrl.isNotEmpty && photoUrl.startsWith('http');
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
@@ -169,13 +166,10 @@ class _SettingsPageState extends State<SettingsPage> {
           CircleAvatar(
             radius: 32.r,
             backgroundColor: Colors.amber.withOpacity(0.2),
-            backgroundImage: hasValidPhotoUrl ? NetworkImage(photoUrl) : null,
-            child: hasValidPhotoUrl
-                ? null
-                : Text(
-                    initial,
-                    style: TextStyle(fontSize: 28.sp, color: Colors.amber.shade400, fontWeight: FontWeight.bold),
-                  ),
+            child: Text(
+              initial,
+              style: TextStyle(fontSize: 28.sp, color: Colors.amber.shade400, fontWeight: FontWeight.bold),
+            ),
           ),
           SizedBox(width: 16.w),
           Expanded(
