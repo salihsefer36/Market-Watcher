@@ -47,5 +47,19 @@
   "subscriptionPlans": "सदस्यता योजनाएं",
   "alarms": "अलार्म",
   "markets": "बाजार",
-  "subscriptions": "सदस्यताएँ"
+  "subscriptions": "सदस्यताएँ",
+  "bestOffer": "सबसे अच्छा प्रस्ताव",
+  "free": "नि: शुल्क",
+  "featureCheck10Min": "10 मिनट जांच अंतराल",
+  "feature5Alarms": "5 अलार्म सीमा",
+  "featureCheck3Min": "3 मिनट जांच अंतराल",
+  "feature20Alarms": "20 अलार्म सीमा",
+  "featureNoAds": "विज्ञापन-मुक्त",
+  "featureCheck1-Min": "1 मिनट जांच अंतराल",
+  "featureUnlimitedAlarms": "असीमित अलार्म",
+  "featurePrioritySupport": "प्राथमिकता सहायता",
+  "currentPlan": "वर्तमान योजना",
+  "upgrade": "अपग्रेड",
+  "downgrade": "डाउनग्रेड",
+  "anErrorOccurred": "एक त्रुटि हुई। कृपया पुन: प्रयास करें।"
 }

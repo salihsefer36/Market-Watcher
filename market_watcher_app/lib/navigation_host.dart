@@ -1,6 +1,3 @@
-// navigation_host.dart
-
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'alarms_page.dart';
@@ -44,10 +41,9 @@ class _NavigationHostPageState extends State<NavigationHostPage> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
-    final user = FirebaseAuth.instance.currentUser;
 
     final pageTitles = [
-      user?.displayName ?? localizations.marketWatcher,
+      localizations.marketWatcher,
       localizations.watchMarkets,
       localizations.subscriptions,
       localizations.settings,

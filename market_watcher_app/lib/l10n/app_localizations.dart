@@ -403,6 +403,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Subscriptions'**
   String get subscriptions;
+
+  /// No description provided for @bestOffer.
+  ///
+  /// In en, this message translates to:
+  /// **'Best Offer'**
+  String get bestOffer;
+
+  /// No description provided for @free.
+  ///
+  /// In en, this message translates to:
+  /// **'Free'**
+  String get free;
+
+  /// No description provided for @featureCheck10Min.
+  ///
+  /// In en, this message translates to:
+  /// **'10 Min Check Interval'**
+  String get featureCheck10Min;
+
+  /// No description provided for @feature5Alarms.
+  ///
+  /// In en, this message translates to:
+  /// **'5 Alarms Limit'**
+  String get feature5Alarms;
+
+  /// No description provided for @featureCheck3Min.
+  ///
+  /// In en, this message translates to:
+  /// **'3 Min Check Interval'**
+  String get featureCheck3Min;
+
+  /// No description provided for @feature20Alarms.
+  ///
+  /// In en, this message translates to:
+  /// **'20 Alarms Limit'**
+  String get feature20Alarms;
+
+  /// No description provided for @featureNoAds.
+  ///
+  /// In en, this message translates to:
+  /// **'Ad-Free Experience'**
+  String get featureNoAds;
+
+  /// No description provided for @featureCheck1Min.
+  ///
+  /// In en, this message translates to:
+  /// **'1 Min Check Interval'**
+  String get featureCheck1Min;
+
+  /// No description provided for @featureUnlimitedAlarms.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlimited Alarms'**
+  String get featureUnlimitedAlarms;
+
+  /// No description provided for @featurePrioritySupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority Support'**
+  String get featurePrioritySupport;
+
+  /// No description provided for @currentPlan.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Plan'**
+  String get currentPlan;
+
+  /// No description provided for @upgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Upgrade'**
+  String get upgrade;
+
+  /// No description provided for @downgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Downgrade'**
+  String get downgrade;
+
+  /// No description provided for @anErrorOccurred.
+  ///
+  /// In en, this message translates to:
+  /// **'An error occurred. Please try again.'**
+  String get anErrorOccurred;
 }
 
 class _AppLocalizationsDelegate

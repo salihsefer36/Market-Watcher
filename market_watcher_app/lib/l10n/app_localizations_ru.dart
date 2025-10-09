@@ -156,4 +156,47 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get subscriptions => 'Подписки';
+
+  @override
+  String get bestOffer => 'Лучшее предложение';
+
+  @override
+  String get free => 'Бесплатно';
+
+  @override
+  String get featureCheck10Min => 'Проверка каждые 10 мин';
+
+  @override
+  String get feature5Alarms => 'Лимит 5 оповещений';
+
+  @override
+  String get featureCheck3Min => 'Проверка каждые 3 мин';
+
+  @override
+  String get feature20Alarms => 'Лимит 20 оповещений';
+
+  @override
+  String get featureNoAds => 'Без рекламы';
+
+  @override
+  String get featureCheck1Min => 'Проверка каждую 1 мин';
+
+  @override
+  String get featureUnlimitedAlarms => 'Безлимитные оповещения';
+
+  @override
+  String get featurePrioritySupport => 'Приоритетная поддержка';
+
+  @override
+  String get currentPlan => 'Текущий план';
+
+  @override
+  String get upgrade => 'Улучшить';
+
+  @override
+  String get downgrade => 'Понизить';
+
+  @override
+  String get anErrorOccurred =>
+      'Произошла ошибка. Пожалуйста, попробуйте еще раз.';
 }

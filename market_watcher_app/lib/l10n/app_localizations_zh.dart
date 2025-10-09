@@ -155,4 +155,46 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get subscriptions => '订阅';
+
+  @override
+  String get bestOffer => '最佳优惠';
+
+  @override
+  String get free => '免费';
+
+  @override
+  String get featureCheck10Min => '10分钟检查间隔';
+
+  @override
+  String get feature5Alarms => '5个警报限制';
+
+  @override
+  String get featureCheck3Min => '3分钟检查间隔';
+
+  @override
+  String get feature20Alarms => '20个警报限制';
+
+  @override
+  String get featureNoAds => '无广告';
+
+  @override
+  String get featureCheck1Min => '1分钟检查间隔';
+
+  @override
+  String get featureUnlimitedAlarms => '无限警报';
+
+  @override
+  String get featurePrioritySupport => '优先支持';
+
+  @override
+  String get currentPlan => '当前计划';
+
+  @override
+  String get upgrade => '升级';
+
+  @override
+  String get downgrade => '降级';
+
+  @override
+  String get anErrorOccurred => '发生错误，请重试。';
 }

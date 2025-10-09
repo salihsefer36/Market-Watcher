@@ -155,4 +155,46 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get subscriptions => 'サブスクリプション';
+
+  @override
+  String get bestOffer => 'ベストオファー';
+
+  @override
+  String get free => '無料';
+
+  @override
+  String get featureCheck10Min => '10分間隔でチェック';
+
+  @override
+  String get feature5Alarms => 'アラーム5件まで';
+
+  @override
+  String get featureCheck3Min => '3分間隔でチェック';
+
+  @override
+  String get feature20Alarms => 'アラーム20件まで';
+
+  @override
+  String get featureNoAds => '広告なし';
+
+  @override
+  String get featureCheck1Min => '1分間隔でチェック';
+
+  @override
+  String get featureUnlimitedAlarms => 'アラーム無制限';
+
+  @override
+  String get featurePrioritySupport => '優先サポート';
+
+  @override
+  String get currentPlan => '現在のプラン';
+
+  @override
+  String get upgrade => 'アップグレード';
+
+  @override
+  String get downgrade => 'ダウングレード';
+
+  @override
+  String get anErrorOccurred => 'エラーが発生しました。もう一度お試しください。';
 }

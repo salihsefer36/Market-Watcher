@@ -156,4 +156,47 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get subscriptions => 'Abonnements';
+
+  @override
+  String get bestOffer => 'Bestes Angebot';
+
+  @override
+  String get free => 'Kostenlos';
+
+  @override
+  String get featureCheck10Min => '10 Min. Prüfintervall';
+
+  @override
+  String get feature5Alarms => 'Limit: 5 Alarme';
+
+  @override
+  String get featureCheck3Min => '3 Min. Prüfintervall';
+
+  @override
+  String get feature20Alarms => 'Limit: 20 Alarme';
+
+  @override
+  String get featureNoAds => 'Werbefrei';
+
+  @override
+  String get featureCheck1Min => '1 Min. Prüfintervall';
+
+  @override
+  String get featureUnlimitedAlarms => 'Unbegrenzte Alarme';
+
+  @override
+  String get featurePrioritySupport => 'Bevorzugter Support';
+
+  @override
+  String get currentPlan => 'Aktueller Plan';
+
+  @override
+  String get upgrade => 'Upgraden';
+
+  @override
+  String get downgrade => 'Downgraden';
+
+  @override
+  String get anErrorOccurred =>
+      'Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.';
 }

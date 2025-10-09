@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; 
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -9,7 +9,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'l10n/app_localizations.dart';
 import 'locale_provider.dart';
 import 'main.dart';
-import 'package:flutter_animate/flutter_animate.dart'; 
+import 'package:flutter_animate/flutter_animate.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -19,6 +19,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  User? _currentUser;
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isInit = true;
@@ -34,6 +35,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_isInit) {
+      _currentUser = FirebaseAuth.instance.currentUser;
       final localeProvider = Provider.of<LocaleProvider>(context, listen: false);
       _currentLanguageCode = localeProvider.locale.languageCode;
       _loadSettings();
@@ -42,9 +44,11 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _loadSettings() async {
-    // This function remains unchanged
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      await _currentUser?.reload();
+      _currentUser = FirebaseAuth.instance.currentUser;
+
+      final uid = _currentUser?.uid;
       if (uid == null) {
         if (mounted) setState(() => _isLoading = false);
         return;
@@ -55,11 +59,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
       if (response.statusCode == 200 && mounted) {
         final settings = jsonDecode(response.body);
-        setState(() {
-          _notificationsEnabled = settings['notifications_enabled'];
-          _currentLanguageCode = settings['language_code'] ?? 'en';
-        });
-
+        _notificationsEnabled = settings['notifications_enabled'];
+        _currentLanguageCode = settings['language_code'] ?? 'en';
+        
         Provider.of<LocaleProvider>(context, listen: false).setLocale(_currentLanguageCode);
       }
     } catch (e) {
@@ -72,7 +74,6 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveSettings({bool? notifications, String? langCode}) async {
-    // This function remains unchanged
     if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
@@ -107,14 +108,13 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _currentUser;
 
     return _isLoading
         ? Center(child: CircularProgressIndicator(color: Colors.amber.shade400))
         : ListView(
             padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 16.w),
             children: [
-              // NEW: User profile header card
               _buildUserProfileHeader(user, localizations),
               SizedBox(height: 20.h),
               
@@ -143,21 +143,19 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               )
             ]
-            // NEW: Add fluid animations to all setting elements
             .animate(interval: 100.ms)
             .fadeIn(duration: 400.ms, curve: Curves.easeOutCubic)
             .slideY(begin: 0.2, duration: 400.ms, curve: Curves.easeOutCubic),
           );
   }
 
-  // NEW: User profile card widget
   Widget _buildUserProfileHeader(User? user, AppLocalizations localizations) {
-    // Kullanıcının profil fotoğrafı URL'sini alıyoruz
     final photoUrl = user?.photoURL;
-    // Kullanıcı adının baş harfini almak için bir değişken
     final String initial = user?.displayName?.isNotEmpty == true
         ? user!.displayName!.substring(0, 1).toUpperCase()
         : (user?.email?.isNotEmpty == true ? user!.email!.substring(0, 1).toUpperCase() : "?");
+
+    final bool hasValidPhotoUrl = photoUrl != null && photoUrl.isNotEmpty && photoUrl.startsWith('http');
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
@@ -171,15 +169,13 @@ class _SettingsPageState extends State<SettingsPage> {
           CircleAvatar(
             radius: 32.r,
             backgroundColor: Colors.amber.withOpacity(0.2),
-            // DEĞİŞTİ: photoUrl varsa NetworkImage ile resmi gösteriyoruz.
-            // Eğer photoUrl yoksa (null ise), o zaman baş harfi gösteriyoruz.
-            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-            child: photoUrl == null
-                ? Text(
+            backgroundImage: hasValidPhotoUrl ? NetworkImage(photoUrl) : null,
+            child: hasValidPhotoUrl
+                ? null
+                : Text(
                     initial,
                     style: TextStyle(fontSize: 28.sp, color: Colors.amber.shade400, fontWeight: FontWeight.bold),
-                  )
-                : null, // Resim varken harfi gösterme
+                  ),
           ),
           SizedBox(width: 16.w),
           Expanded(
@@ -213,7 +209,6 @@ class _SettingsPageState extends State<SettingsPage> {
         border: Border.all(color: Colors.amber.withOpacity(0.2), width: 1.0),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 5))],
       ),
-      // Use ClipRRect to ensure children respect the border radius
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16.r),
         child: Column(children: children),
@@ -246,7 +241,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       trailing: const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
       onTap: () {
-        HapticFeedback.lightImpact(); // NEW: Haptic feedback
+        HapticFeedback.lightImpact();
         _showLanguageDialog(localizations);
       },
     );
@@ -260,7 +255,7 @@ class _SettingsPageState extends State<SettingsPage> {
       value: _notificationsEnabled,
       activeColor: Colors.amber.shade400,
       onChanged: _isSaving ? null : (bool value) {
-        HapticFeedback.lightImpact(); // NEW: Haptic feedback
+        HapticFeedback.lightImpact();
         setState(() => _notificationsEnabled = value);
         _saveSettings(notifications: value);
       },
@@ -272,16 +267,14 @@ class _SettingsPageState extends State<SettingsPage> {
       leading: Icon(Icons.logout, color: Colors.red.shade400),
       title: Text(localizations.signOut, style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600)),
       onTap: () async {
-        HapticFeedback.mediumImpact(); // NEW: More distinct haptic feedback
+        HapticFeedback.mediumImpact();
         await FirebaseAuth.instance.signOut();
         await GoogleSignIn().signOut();
-        // Check if the widget is still in the tree before popping
         if(mounted) Navigator.of(context).popUntil((route) => route.isFirst);
       },
     );
   }
 
-  // CHANGED: AlertDialog is now styled to match the app's theme
   void _showLanguageDialog(AppLocalizations localizations) {
     showDialog(
       context: context,

@@ -48,5 +48,19 @@
   "subscriptionPlans": "Abonelik Planları",
   "alarms": "Alarmlar",
   "markets": "Piyasalar",
-  "subscriptions": "Abonelikler"
+  "subscriptions": "Abonelikler",
+  "bestOffer": "En İyi Teklif",
+  "free": "Ücretsiz",
+  "featureCheck10Min": "10 Dk. Kontrol Aralığı",
+  "feature5Alarms": "5 Adet Alarm Limiti",
+  "featureCheck3Min": "3 Dk. Kontrol Aralığı",
+  "feature20Alarms": "20 Adet Alarm Limiti",
+  "featureNoAds": "Reklamsız Deneyim",
+  "featureCheck1Min": "1 Dk. Kontrol Aralığı",
+  "featureUnlimitedAlarms": "Sınırsız Alarm",
+  "featurePrioritySupport": "Öncelikli Destek",
+  "currentPlan": "Mevcut Plan",
+  "upgrade": "Yükselt",
+  "downgrade": "Düşür",
+  "anErrorOccurred": "Bir hata oluştu. Lütfen tekrar deneyin."
 }

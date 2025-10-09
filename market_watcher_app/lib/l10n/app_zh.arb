@@ -47,5 +47,19 @@
   "subscriptionPlans": "订阅计划",
   "alarms": "警报",
   "markets": "市场",
-  "subscriptions": "订阅"
+  "subscriptions": "订阅",
+  "bestOffer": "最佳优惠",
+  "free": "免费",
+  "featureCheck10Min": "10分钟检查间隔",
+  "feature5Alarms": "5个警报限制",
+  "featureCheck3Min": "3分钟检查间隔",
+  "feature20Alarms": "20个警报限制",
+  "featureNoAds": "无广告",
+  "featureCheck1Min": "1分钟检查间隔",
+  "featureUnlimitedAlarms": "无限警报",
+  "featurePrioritySupport": "优先支持",
+  "currentPlan": "当前计划",
+  "upgrade": "升级",
+  "downgrade": "降级",
+  "anErrorOccurred": "发生错误，请重试。"
 }

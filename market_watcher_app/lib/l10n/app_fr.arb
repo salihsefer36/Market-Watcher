@@ -47,5 +47,19 @@
   "subscriptionPlans": "Plans d'abonnement",
   "alarms": "Alarmes",
   "markets": "Marchés",
-  "subscriptions": "Abonnements"
+  "subscriptions": "Abonnements",
+  "bestOffer": "Meilleure Offre",
+  "free": "Gratuit",
+  "featureCheck10Min": "Intervalle de 10 min",
+  "feature5Alarms": "Limite de 5 alarmes",
+  "featureCheck3Min": "Intervalle de 3 min",
+  "feature20Alarms": "Limite de 20 alarmes",
+  "featureNoAds": "Expérience sans pub",
+  "featureCheck1Min": "Intervalle de 1 min",
+  "featureUnlimitedAlarms": "Alarmes illimitées",
+  "featurePrioritySupport": "Support prioritaire",
+  "currentPlan": "Plan actuel",
+  "upgrade": "Mettre à niveau",
+  "downgrade": "Rétrograder",
+  "anErrorOccurred": "Une erreur est survenue. Veuillez réessayer."
 }

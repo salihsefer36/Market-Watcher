@@ -47,5 +47,19 @@
     "subscriptionPlans": "خطط الاشتراك",
     "alarms": "التنبيهات",
     "markets": "الأسواق",
-    "subscriptions": "الاشتراكات"
+    "subscriptions": "الاشتراكات",
+    "bestOffer": "أفضل عرض",
+    "free": "مجاني",
+    "featureCheck10Min": "فحص كل 10 دقائق",
+    "feature5Alarms": "حد 5 تنبيهات",
+    "featureCheck3Min": "فحص كل 3 دقائق",
+    "feature20Alarms": "حد 20 تنبيهًا",
+    "featureNoAds": "بدون إعلانات",
+    "featureCheck1Min": "فحص كل دقيقة",
+    "featureUnlimitedAlarms": "تنبيهات غير محدودة",
+    "featurePrioritySupport": "دعم ذو أولوية",
+    "currentPlan": "الخطة الحالية",
+    "upgrade": "ترقية",
+    "downgrade": "تخفيض",
+    "anErrorOccurred": "حدث خطأ. الرجاء معاودة المحاولة."
 }

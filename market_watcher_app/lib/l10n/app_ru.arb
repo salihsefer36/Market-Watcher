@@ -47,5 +47,19 @@
   "subscriptionPlans": "Планы подписки",
   "alarms": "Оповещения",
   "markets": "Рынки",
-  "subscriptions": "Подписки"
+  "subscriptions": "Подписки",
+  "bestOffer": "Лучшее предложение",
+  "free": "Бесплатно",
+  "featureCheck10Min": "Проверка каждые 10 мин",
+  "feature5Alarms": "Лимит 5 оповещений",
+  "featureCheck3Min": "Проверка каждые 3 мин",
+  "feature20Alarms": "Лимит 20 оповещений",
+  "featureNoAds": "Без рекламы",
+  "featureCheck1Min": "Проверка каждую 1 мин",
+  "featureUnlimitedAlarms": "Безлимитные оповещения",
+  "featurePrioritySupport": "Приоритетная поддержка",
+  "currentPlan": "Текущий план",
+  "upgrade": "Улучшить",
+  "downgrade": "Понизить",
+  "anErrorOccurred": "Произошла ошибка. Пожалуйста, попробуйте еще раз."
 }

@@ -156,4 +156,46 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get subscriptions => 'Abonelikler';
+
+  @override
+  String get bestOffer => 'En İyi Teklif';
+
+  @override
+  String get free => 'Ücretsiz';
+
+  @override
+  String get featureCheck10Min => '10 Dk. Kontrol Aralığı';
+
+  @override
+  String get feature5Alarms => '5 Adet Alarm Limiti';
+
+  @override
+  String get featureCheck3Min => '3 Dk. Kontrol Aralığı';
+
+  @override
+  String get feature20Alarms => '20 Adet Alarm Limiti';
+
+  @override
+  String get featureNoAds => 'Reklamsız Deneyim';
+
+  @override
+  String get featureCheck1Min => '1 Dk. Kontrol Aralığı';
+
+  @override
+  String get featureUnlimitedAlarms => 'Sınırsız Alarm';
+
+  @override
+  String get featurePrioritySupport => 'Öncelikli Destek';
+
+  @override
+  String get currentPlan => 'Mevcut Plan';
+
+  @override
+  String get upgrade => 'Yükselt';
+
+  @override
+  String get downgrade => 'Düşür';
+
+  @override
+  String get anErrorOccurred => 'Bir hata oluştu. Lütfen tekrar deneyin.';
 }

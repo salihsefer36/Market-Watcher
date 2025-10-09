@@ -156,4 +156,46 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get subscriptions => 'الاشتراكات';
+
+  @override
+  String get bestOffer => 'أفضل عرض';
+
+  @override
+  String get free => 'مجاني';
+
+  @override
+  String get featureCheck10Min => 'فحص كل 10 دقائق';
+
+  @override
+  String get feature5Alarms => 'حد 5 تنبيهات';
+
+  @override
+  String get featureCheck3Min => 'فحص كل 3 دقائق';
+
+  @override
+  String get feature20Alarms => 'حد 20 تنبيهًا';
+
+  @override
+  String get featureNoAds => 'بدون إعلانات';
+
+  @override
+  String get featureCheck1Min => 'فحص كل دقيقة';
+
+  @override
+  String get featureUnlimitedAlarms => 'تنبيهات غير محدودة';
+
+  @override
+  String get featurePrioritySupport => 'دعم ذو أولوية';
+
+  @override
+  String get currentPlan => 'الخطة الحالية';
+
+  @override
+  String get upgrade => 'ترقية';
+
+  @override
+  String get downgrade => 'تخفيض';
+
+  @override
+  String get anErrorOccurred => 'حدث خطأ. الرجاء معاودة المحاولة.';
 }

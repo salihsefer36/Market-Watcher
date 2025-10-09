@@ -157,4 +157,46 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get subscriptions => 'Abbonamenti';
+
+  @override
+  String get bestOffer => 'Migliore Offerta';
+
+  @override
+  String get free => 'Gratuito';
+
+  @override
+  String get featureCheck10Min => 'Controllo ogni 10 min';
+
+  @override
+  String get feature5Alarms => 'Limite 5 allarmi';
+
+  @override
+  String get featureCheck3Min => 'Controllo ogni 3 min';
+
+  @override
+  String get feature20Alarms => 'Limite 20 allarmi';
+
+  @override
+  String get featureNoAds => 'Senza pubblicità';
+
+  @override
+  String get featureCheck1Min => 'Controllo ogni 1 min';
+
+  @override
+  String get featureUnlimitedAlarms => 'Allarmi illimitati';
+
+  @override
+  String get featurePrioritySupport => 'Supporto prioritario';
+
+  @override
+  String get currentPlan => 'Piano attuale';
+
+  @override
+  String get upgrade => 'Aggiorna';
+
+  @override
+  String get downgrade => 'Declassa';
+
+  @override
+  String get anErrorOccurred => 'Si è verificato un errore. Riprova.';
 }

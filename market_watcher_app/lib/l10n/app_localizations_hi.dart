@@ -156,4 +156,46 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get subscriptions => 'सदस्यताएँ';
+
+  @override
+  String get bestOffer => 'सबसे अच्छा प्रस्ताव';
+
+  @override
+  String get free => 'नि: शुल्क';
+
+  @override
+  String get featureCheck10Min => '10 मिनट जांच अंतराल';
+
+  @override
+  String get feature5Alarms => '5 अलार्म सीमा';
+
+  @override
+  String get featureCheck3Min => '3 मिनट जांच अंतराल';
+
+  @override
+  String get feature20Alarms => '20 अलार्म सीमा';
+
+  @override
+  String get featureNoAds => 'विज्ञापन-मुक्त';
+
+  @override
+  String get featureCheck1Min => '1 Min Check Interval';
+
+  @override
+  String get featureUnlimitedAlarms => 'असीमित अलार्म';
+
+  @override
+  String get featurePrioritySupport => 'प्राथमिकता सहायता';
+
+  @override
+  String get currentPlan => 'वर्तमान योजना';
+
+  @override
+  String get upgrade => 'अपग्रेड';
+
+  @override
+  String get downgrade => 'डाउनग्रेड';
+
+  @override
+  String get anErrorOccurred => 'एक त्रुटि हुई। कृपया पुन: प्रयास करें।';
 }

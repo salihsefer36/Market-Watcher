@@ -47,5 +47,19 @@
   "subscriptionPlans": "購読プラン",
   "alarms": "アラーム",
   "markets": "市場",
-  "subscriptions": "サブスクリプション"
+  "subscriptions": "サブスクリプション",
+  "bestOffer": "ベストオファー",
+  "free": "無料",
+  "featureCheck10Min": "10分間隔でチェック",
+  "feature5Alarms": "アラーム5件まで",
+  "featureCheck3Min": "3分間隔でチェック",
+  "feature20Alarms": "アラーム20件まで",
+  "featureNoAds": "広告なし",
+  "featureCheck1Min": "1分間隔でチェック",
+  "featureUnlimitedAlarms": "アラーム無制限",
+  "featurePrioritySupport": "優先サポート",
+  "currentPlan": "現在のプラン",
+  "upgrade": "アップグレード",
+  "downgrade": "ダウングレード",
+  "anErrorOccurred": "エラーが発生しました。もう一度お試しください。"
 }
