@@ -1,10 +1,11 @@
 import os
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import traceback
 from typing import Optional, List, Dict
+import json
 
-from fastapi import FastAPI, HTTPException, Query, Path
+from fastapi import FastAPI, HTTPException, Query, Path, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from sqlmodel import SQLModel, Field, create_engine, Session, select, delete
@@ -13,16 +14,24 @@ import yfinance as yf
 import firebase_admin
 from firebase_admin import credentials, messaging
 from dotenv import load_dotenv
-import json
 
 # ----------------------
-# .env ve Firebase
+# .env, Config ve Firebase
 # ----------------------
 load_dotenv()
+
+# --- YENİ GEREKLİ ORTAM DEĞİŞKENİ ---
+# Cron job'unuzun endpoint'i çağırmak için kullanacağı gizli anahtar.
+# Örnek: "my_super_secret_cron_key_123"
+# Bu anahtarı hem hosting platformunuza hem de cron job servisinize eklemelisiniz.
+CRON_SECRET_KEY = os.getenv("CRON_SECRET_KEY")
+if not CRON_SECRET_KEY:
+    raise ValueError("CRON_SECRET_KEY ortam değişkeni bulunamadı! Bu, cron job güvenliği için zorunludur.")
+
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY")
 FINNHUB_BASE = "https://finnhub.io/api/v1"
 
-# Firebase initialization using FIREBASE_JSON
+# Firebase initialization
 firebase_json_str = os.getenv("FIREBASE_JSON")
 if not firebase_json_str:
     raise ValueError("FIREBASE_JSON ortam değişkeni bulunamadı!")
@@ -35,9 +44,8 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
 # ----------------------
-# Config ve DB
+# DB Yapılandırması
 # ----------------------
-
 DB_URL = os.getenv("DATABASE_URL")
 if not DB_URL:
     raise RuntimeError("DATABASE_URL bulunamadı! Railway'de Postgres URL tanımlı mı kontrol et.")
@@ -45,9 +53,19 @@ if not DB_URL:
 if DB_URL.startswith("postgres://"):
     DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
 
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "60"))
-
 engine = create_engine(DB_URL, echo=False)
+
+# ----------------------
+# --- YENİ CACHE MEKANİZMASI ---
+# /prices endpoint'i için basit bir in-memory cache
+# ----------------------
+_prices_cache: Dict = {"timestamp": None, "data": None}
+_prices_cache_lock = asyncio.Lock()
+CACHE_DURATION = timedelta(minutes=5) # Cache'in 5 dakika geçerli olmasını sağlar
+
+# ----------------------
+# FastAPI Uygulaması
+# ----------------------
 app = FastAPI(title="MarketWatcher Backend")
 
 app.add_middleware(
@@ -59,7 +77,7 @@ app.add_middleware(
 )
 
 # ----------------------------
-# DB Model (GÜNCELLENDİ)
+# DB Modelleri
 # ----------------------------
 class Alert(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
@@ -93,6 +111,102 @@ class User(UserSettings, table=True):
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
+
+# ----------------------------
+# --- YENİ CRON JOB ENDPOINT'i ve MANTIĞI ---
+# ----------------------------
+async def run_price_checks():
+    """
+    Bu fonksiyon artık bir döngü içinde değil, tek seferlik bir kontrol yapar.
+    Tüm alarmları kontrol eder, bildirim gönderir ve tetiklenen alarmları siler.
+    """
+    print("Arka plan fiyat kontrolü başladı...")
+    try:
+        with Session(engine) as session:
+            all_alerts = session.exec(select(Alert)).all()
+            if not all_alerts:
+                print("Kontrol edilecek alarm bulunamadı. Görev sonlandırıldı.")
+                return
+
+            all_users = session.exec(select(User)).all()
+            user_preferences = {user.uid: user for user in all_users}
+
+        unique_symbols = {alert.symbol for alert in all_alerts}
+        
+        prices = {}
+        # Asenkron olarak tüm fiyatları çek
+        price_tasks = [fetch_price(symbol) for symbol in unique_symbols]
+        price_results = await asyncio.gather(*price_tasks)
+        
+        for symbol, price in zip(unique_symbols, price_results):
+            if price is not None:
+                prices[symbol] = price
+        
+        alerts_to_delete_ids = []
+        for alert in all_alerts:
+            user_settings = user_preferences.get(alert.user_uid)
+            if not user_settings or not user_settings.fcm_token:
+                continue 
+
+            notifications_on = user_settings.notifications_enabled
+            lang_code = user_settings.language_code if user_settings.language_code in NOTIFICATION_TEMPLATES else "en"
+            template = NOTIFICATION_TEMPLATES[lang_code]
+            localized_symbol = METAL_LOCALIZATION_MAP.get(alert.symbol, {}).get(lang_code, alert.symbol)
+            
+            current_price = prices.get(alert.symbol)
+            if current_price is None:
+                continue
+
+            if current_price >= alert.upper_limit or current_price <= alert.lower_limit:
+                if notifications_on:
+                    is_increase = current_price >= alert.upper_limit
+                    direction_text = template["increased"] if is_increase else template["decreased"]
+                    
+                    title = template["title"].format(symbol=localized_symbol)
+                    body = template["body"].format(
+                        symbol=localized_symbol,
+                        percentage=alert.percentage,
+                        direction=direction_text,
+                        price=current_price
+                    )
+                    send_push_notification(token=user_settings.fcm_token, title=title, body=body)
+                
+                alerts_to_delete_ids.append(alert.id)
+
+        if alerts_to_delete_ids:
+            with Session(engine) as session:
+                delete_stmt = delete(Alert).where(Alert.id.in_(alerts_to_delete_ids))
+                session.exec(delete_stmt)
+                session.commit()
+                print(f"{len(alerts_to_delete_ids)} adet tetiklenen alarm silindi.")
+
+    except Exception as e:
+        print(f"KRİTİK HATA (run_price_checks): {e}")
+        traceback.print_exc()
+    
+    print("Arka plan fiyat kontrolü tamamlandı.")
+
+def verify_cron_secret(secret: str = Query(...)):
+    """Dependency to verify the cron job secret key."""
+    if secret != CRON_SECRET_KEY:
+        raise HTTPException(status_code=403, detail="Geçersiz veya eksik gizli anahtar.")
+    return True
+
+@app.post("/run-checks", status_code=202)
+async def trigger_price_checks(
+    background_tasks: BackgroundTasks, 
+    is_secret_valid: bool = Depends(verify_cron_secret)
+):
+    """
+    Bu endpoint, bir cron job tarafından çağrılmak üzere tasarlanmıştır.
+    Fiyat kontrol işlemini arka planda başlatır ve hemen yanıt döner.
+    """
+    background_tasks.add_task(run_price_checks)
+    return {"message": "Fiyat kontrol görevi arka planda başlatıldı."}
+
 # ----------------------------
 # CRUD for Alerts and Settings
 # ----------------------------
@@ -103,7 +217,7 @@ def register_token(user_uid: str = Query(...), token: str = Query(...)):
         user = session.get(User, user_uid)
         if not user:
             # Kullanıcı yoksa, yeni bir kullanıcı oluştur ve token'ı ata.
-            user = User(uid=user_uid, fcm_token=token)
+            user = User(uid=user_uid, fcm_token=token, notifications_enabled=True, language_code='en')
         else:
             # Kullanıcı varsa, sadece token'ını güncelle.
             user.fcm_token = token
@@ -194,8 +308,8 @@ def get_user_settings(user_uid: str):
         user = session.get(User, user_uid)
         if not user:
             # If user has no settings saved yet, return default values
-            return UserSettings(notifications_enabled=True)
-        return user
+            return UserSettings(notifications_enabled=True, language_code="en")
+        return UserSettings(notifications_enabled=user.notifications_enabled, language_code=user.language_code)
 
 @app.post("/user/settings/{user_uid}", response_model=User)
 def update_user_settings(user_uid: str, settings: UserSettings):
@@ -253,49 +367,57 @@ def send_push_notification(token: str, title: str, body: str):
 # ----------------------------
 # Price Fetch
 # ----------------------------
-
 async def fetch_price(symbol: str):
     symbol = symbol.upper()
     metals_yf = {"ALTIN": "GC=F", "GÜMÜŞ": "SI=F", "BAKIR": "HG=F"}
+    
     if symbol in metals_yf:
         try:
             loop = asyncio.get_event_loop()
-            usdtry = await loop.run_in_executor(None, lambda: yf.Ticker("TRY=X").history(period="1d")['Close'].iloc[-1])
-            price_usd = await loop.run_in_executor(None, lambda: yf.Ticker(metals_yf[symbol]).history(period="1d")['Close'].iloc[-1])
+            usdtry_ticker = await loop.run_in_executor(None, lambda: yf.Ticker("TRY=X"))
+            usdtry = usdtry_ticker.history(period="1d")['Close'].iloc[-1]
+            
+            metal_ticker = await loop.run_in_executor(None, lambda: yf.Ticker(metals_yf[symbol]))
+            price_usd = metal_ticker.history(period="1d")['Close'].iloc[-1]
+            
             return round((price_usd * usdtry) / 31.1035, 2)
-        except:
+        except Exception as e:
+            print(f"Error fetching metal {symbol} with yfinance: {e}")
             return None
         
     if symbol.endswith(".IS") or symbol in BIST_FALLBACK_NAMES:
         try:
             yf_symbol = symbol if symbol.endswith(".IS") else f"{symbol}.IS"
             loop = asyncio.get_event_loop()
-            price = await loop.run_in_executor(None, lambda: yf.Ticker(yf_symbol).history(period="1d")['Close'].iloc[-1])
+            ticker_obj = await loop.run_in_executor(None, lambda: yf.Ticker(yf_symbol))
+            price = ticker_obj.history(period="1d")['Close'].iloc[-1]
             return round(float(price), 2)
-        except:
+        except Exception as e:
+            print(f"Error fetching BIST {symbol} with yfinance: {e}")
             return None
+
     async with httpx.AsyncClient(timeout=10) as client:
         if symbol in POPULAR_NASDAQ:
             try:
                 r = await client.get(f"{FINNHUB_BASE}/quote", params={"symbol": symbol, "token": FINNHUB_API_KEY})
-                if r.status_code == 200:
-                    price = r.json().get("c")
-                    if price:
-                        return round(float(price), 2)
-            except:
+                r.raise_for_status()
+                price = r.json().get("c")
+                if price:
+                    return round(float(price), 2)
+            except Exception as e:
+                print(f"Error fetching NASDAQ {symbol} from Finnhub: {e}")
                 return None
 
         if symbol.endswith("USDT"):
             try:
                 r = await client.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": symbol})
-                if r.status_code == 200:
-                    price = float(r.json().get("price", 0))
-                    if price > 0:
-                        return round(price, 2)
+                r.raise_for_status()
+                price = float(r.json().get("price", 0))
+                if price > 0:
+                    return round(price, 2)
             except Exception as e:
-                print(f"Crypto fetch error for {symbol}: {e}")
+                print(f"Error fetching Crypto {symbol} from Binance: {e}")
                 return None
-
         return None
 # ----------------------------
 # --- YENİ ÇEVİRİ SÖZLÜĞÜ (Metal İsimleri) ---
@@ -388,88 +510,6 @@ NOTIFICATION_TEMPLATES = {
         "decreased": "انخفض"
     }
 }
-# ----------------------------
-# Price Check Loop 
-# ----------------------------
-async def price_check_loop():
-    while True:
-        try:
-            with Session(engine) as session:
-                all_alerts = session.exec(select(Alert)).all()
-                all_users = session.exec(select(User)).all()
-                user_preferences = {user.uid: user for user in all_users}
-
-            if not all_alerts:
-                await asyncio.sleep(CHECK_INTERVAL)
-                continue
-
-            unique_symbols = {alert.symbol for alert in all_alerts}
-            
-            prices = {}
-            for symbol in unique_symbols:
-                price = await fetch_price(symbol)
-                if price is not None:
-                    prices[symbol] = price
-            
-            alerts_to_delete_ids = []
-            for alert in all_alerts:
-                user_settings = user_preferences.get(alert.user_uid)
-                notifications_on = user_settings.notifications_enabled if user_settings else True
-                
-                lang_code = user_settings.language_code if user_settings and user_settings.language_code in NOTIFICATION_TEMPLATES else "en"
-                
-                template = NOTIFICATION_TEMPLATES[lang_code]
-
-                localized_symbol = METAL_LOCALIZATION_MAP.get(alert.symbol, {}).get(lang_code, alert.symbol)
-
-
-                current_price = prices.get(alert.symbol)
-                if current_price is None:
-                    continue
-
-                if current_price >= alert.upper_limit or current_price <= alert.lower_limit:
-                    if alert.user_token and notifications_on:
-                        is_increase = current_price >= alert.upper_limit
-                        direction_text = template["increased"] if is_increase else template["decreased"]
-                        
-                        title = template["title"].format(symbol=localized_symbol)
-                        body = template["body"].format(
-                            symbol=localized_symbol,
-                            percentage=alert.percentage,
-                            direction=direction_text,
-                            price=current_price
-                        )
-                        send_push_notification(token=alert.user_token, title=title, body=body)
-                    
-                    alerts_to_delete_ids.append(alert.id)
-
-            if alerts_to_delete_ids:
-                with Session(engine) as session:
-                    delete_stmt = delete(Alert).where(Alert.id.in_(alerts_to_delete_ids))
-                    session.exec(delete_stmt)
-                    session.commit()
-                    print(f"Deleted {len(alerts_to_delete_ids)} triggered alerts.")
-
-        except Exception as e:
-            print(f"CRITICAL ERROR in price_check_loop: {e}")
-        
-        print(f"Price check loop finished. Waiting for {CHECK_INTERVAL} seconds.")
-        await asyncio.sleep(CHECK_INTERVAL)
-
-@app.on_event("startup")
-async def on_startup():
-    create_db_and_tables()
-    app.state._task = asyncio.create_task(price_check_loop())
-
-@app.on_event("shutdown")
-async def on_shutdown():
-    task = getattr(app.state, "_task", None)
-    if task:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
 
 LANGUAGE_CURRENCY_MAP = {
     'tr': 'TRY',
@@ -650,153 +690,96 @@ BIST_FALLBACK_NAMES = {
 }
 
 async def get_bist_symbols_with_name():
-    # We only use the fallback names for simplicity, not API calls
     return [{"symbol": s.split(".")[0], "name": BIST_FALLBACK_NAMES.get(s.split(".")[0], s.split(".")[0])}
             for s in BIST100_SYMBOLS]
 
 async def get_bist_prices():
     try:
-        data = yf.download(BIST100_SYMBOLS, period="1d")['Close']
-    except:
+        data = yf.download(BIST100_SYMBOLS, period="1d", progress=False)['Close']
+    except Exception as e:
+        print(f"Error downloading BIST data: {e}")
         data = None
 
     results = []
     for symbol in BIST100_SYMBOLS:
         short_symbol = symbol.split(".")[0]
         price = None
-        if data is not None:
+        if data is not None and not data.empty:
             try:
-                price = round(float(data[symbol].iloc[-1]), 2)
-            except:
+                price_series = data[symbol]
+                if not price_series.dropna().empty:
+                    price = round(float(price_series.dropna().iloc[-1]), 2)
+            except (KeyError, IndexError):
                 price = None
         results.append({"symbol": short_symbol, "price": price})
     return results
 
-# ----------------------------
-# NASDAQ Symbols & Prices
-# ----------------------------
-
 POPULAR_NASDAQ = [
-    "AAPL", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "NFLX", "INTC", "AMD",
-    "ADBE", "CSCO", "CMCSA", "PEP", "QCOM", "AVGO", "TXN", "COST", "AMGN", "SBUX",
-    "ISRG", "GILD", "MDLZ", "BIIB", "ZM", "SNPS", "LRCX", "MU", "BKNG", "ADSK",
-    "REGN", "VRTX", "EA", "IDXX", "MAR", "CTSH", "KLAC", "ILMN", "ADP", "ROST",
-    "ASML", "DOCU", "MELI", "EXC", "ALGN", "FAST", "WDAY", "NTES", "SWKS", "KDP"
+    "AAPL", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "NVDA", "NFLX", "INTC", "AMD", "ADBE", "CSCO", "CMCSA", "PEP",
+    "QCOM", "AVGO", "TXN", "COST", "AMGN", "SBUX", "ISRG", "GILD", "MDLZ", "BIIB", "ZM", "SNPS", "LRCX", "MU",
+    "BKNG", "ADSK", "REGN", "VRTX", "EA", "IDXX", "MAR", "CTSH", "KLAC", "ILMN", "ADP", "ROST", "ASML", "DOCU",
+    "MELI", "EXC", "ALGN", "FAST", "WDAY", "NTES", "SWKS", "KDP"
 ]
 
 async def get_nasdaq_symbols_with_name(n=50):
     symbols = POPULAR_NASDAQ[:n]
     results = []
-
-    async with httpx.AsyncClient(timeout=5) as client:
-        tasks = []
-        for sym in symbols:
-            url = f"{FINNHUB_BASE}/stock/profile2"
-            params = {"symbol": sym, "token": FINNHUB_API_KEY}
-            tasks.append(client.get(url, params=params))
+    async with httpx.AsyncClient(timeout=10) as client:
+        tasks = [client.get(f"{FINNHUB_BASE}/stock/profile2", params={"symbol": sym, "token": FINNHUB_API_KEY}) for sym in symbols]
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
     for sym, r in zip(symbols, responses):
         name = sym
-        try:
-            if not isinstance(r, Exception) and r.status_code == 200:
-                data = r.json()
-                name = data.get("name") or sym
-        except:
-            pass
+        if not isinstance(r, Exception) and r.status_code == 200:
+            data = r.json()
+            name = data.get("name") or sym
         results.append({"symbol": sym, "name": name})
-
     return results
 
-
-async def fetch_nasdaq_prices(symbols: list[str]):
-    async def fetch(symbol: str):
-        url = f"{FINNHUB_BASE}/quote"
-        params = {"symbol": symbol, "token": FINNHUB_API_KEY}
-        try:
-            async with httpx.AsyncClient(timeout=5) as client:
-                r = await client.get(url, params=params)
-                if r.status_code == 200:
-                    price = r.json().get("c")
-                    return {"symbol": symbol, "price": round(price, 2) if price else None}
-        except:
-            pass
-        return {"symbol": symbol, "price": None}
-
-    tasks = [fetch(sym) for sym in symbols]
-    return await asyncio.gather(*tasks)
-
 async def get_nasdaq_prices(n=50):
-    symbols_with_name = await get_nasdaq_symbols_with_name(n)
-    symbols = [item["symbol"] for item in symbols_with_name]
-    results = await fetch_nasdaq_prices(symbols)
+    symbols = POPULAR_NASDAQ[:n]
+    async with httpx.AsyncClient(timeout=10) as client:
+        tasks = [client.get(f"{FINNHUB_BASE}/quote", params={"symbol": sym, "token": FINNHUB_API_KEY}) for sym in symbols]
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    results = []
+    for sym, r in zip(symbols, responses):
+        price = None
+        if not isinstance(r, Exception) and r.status_code == 200:
+            price_val = r.json().get("c")
+            if price_val:
+                price = round(price_val, 2)
+        results.append({"symbol": sym, "price": price})
+    return results
 
-    final = []
-    for item, price_data in zip(symbols_with_name, results):
-        final.append({
-            "symbol": item["symbol"],
-            "name": item["name"],
-            "price": price_data["price"]
-        })
-    return final
-# ----------------------------
-# Crypto Prices
-# ----------------------------
 async def get_top_crypto_symbols(n=50):
     url = "https://api.binance.com/api/v3/ticker/price"
-    async with httpx.AsyncClient(timeout=15) as client:
-        r = await client.get(url)
-        if r.status_code == 200:
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(url)
+            r.raise_for_status()
             data = r.json()
             symbols = [d["symbol"] for d in data if d["symbol"].endswith("USDT")]
             return symbols[:n]
-    return []
+    except Exception as e:
+        print(f"Error fetching crypto symbols: {e}")
+        return []
 
 async def get_crypto_prices(n=50):
     symbols = await get_top_crypto_symbols(n)
-    tasks = []
-    for s in symbols:
-        async def fetch(symbol=s):
-            url = "https://api.binance.com/api/v3/ticker/price"
-            async with httpx.AsyncClient(timeout=10) as client:
-                r = await client.get(url, params={"symbol": symbol})
-                if r.status_code == 200:
-                    data = r.json()
-                    price = round(float(data["price"]), 2)
-                    if price > 0:
-                        return {"symbol": symbol[:-1], "price": price}
-            return None 
-        tasks.append(fetch())
-    results = await asyncio.gather(*tasks)
-    return [r for r in results if r is not None]
-
-# ----------------------------
-# Combined Prices Endpoint 
-# ----------------------------
-@app.get("/prices")
-async def get_all_prices(user_uid: Optional[str] = Query(None)): 
+    async with httpx.AsyncClient(timeout=10) as client:
+        tasks = [client.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": s}) for s in symbols]
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
     
-    bist_task = get_bist_prices()
-    nasdaq_task = get_nasdaq_prices()
-    crypto_task = get_crypto_prices()
+    results = []
+    for sym, r in zip(symbols, responses):
+        if not isinstance(r, Exception) and r.status_code == 200:
+            data = r.json()
+            price = round(float(data["price"]), 2)
+            if price > 0:
+                results.append({"symbol": sym[:-4], "price": price}) # USDT son ekini kaldır
+    return results
 
-    if user_uid is None:
-        raise HTTPException(status_code=400, detail="User UID is required for price fetching.")
-        
-    bist, nasdaq, crypto = await asyncio.gather(bist_task, nasdaq_task, crypto_task)
-    
-    metals_dict = get_metals(user_uid=user_uid) 
-    
-    metals = [{"market": "METALS", "symbol": k, "price": v} for k, v in metals_dict.items()]
-    bist = [{"market": "BIST", **item} for item in bist]
-    nasdaq = [{"market": "NASDAQ", **item} for item in nasdaq]
-    crypto = [{"market": "CRYPTO", **item} for item in crypto]
-    all_data = bist + nasdaq + crypto + metals
-    return all_data
-
-# ----------------------------
-# Symbols with Name Endpoint
-# ----------------------------
 @app.get("/symbols_with_name")
 async def symbols_with_name(market: str, n: int = 50):
     market = market.upper()
@@ -806,8 +789,7 @@ async def symbols_with_name(market: str, n: int = 50):
         return await get_nasdaq_symbols_with_name(n)
     elif market == "CRYPTO":
         symbols = await get_top_crypto_symbols(n)
-        return [{"symbol": s[:-1], "name": s[:-1]} for s in symbols]
+        return [{"symbol": s[:-4], "name": s[:-4]} for s in symbols]
     elif market == "METALS":
-        metal_names = ["Altın", "Gümüş", "Bakır"]
-        return [{"symbol": name, "name": name} for name in metal_names]
-    return []
+        return [{"symbol": name, "name": name} for name in ["Altın", "Gümüş", "Bakır"]]
+    raise HTTPException(status_code=400, detail="Invalid market specified")
