@@ -5,7 +5,8 @@ import traceback
 from typing import Optional, List, Dict
 import json
 
-from fastapi import FastAPI, HTTPException, Query, Path, BackgroundTasks, Depends
+from pydantic import BaseModel, Field as PydanticField
+from fastapi import FastAPI, HTTPException, Query, Path, BackgroundTasks, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from sqlmodel import SQLModel, Field, create_engine, Session, select, delete
@@ -120,6 +121,67 @@ def create_db_and_tables():
 def on_startup():
     create_db_and_tables()
 
+class RevenueCatEvent(BaseModel):
+    app_user_id: str = PydanticField(..., alias="app_user_id")
+    entitlements: List[str] = PydanticField(..., alias="entitlements")
+
+class RevenueCatWebhookPayload(BaseModel):
+    event: RevenueCatEvent
+    api_version: str
+
+# Yeni ortam değişkenini kodun en üstünde diğerleri gibi okuyun
+REVENUECAT_WEBHOOK_TOKEN = os.getenv("REVENUECAT_WEBHOOK_TOKEN")
+
+@app.post("/webhooks/revenuecat")
+async def handle_revenuecat_webhook(
+    payload: RevenueCatWebhookPayload, 
+    authorization: str = Header(None)
+):
+    """
+    RevenueCat'ten gelen abonelik durumu değişikliklerini dinler ve
+    veritabanındaki kullanıcı planını günceller.
+    """
+    # 1. Adım: İsteğin gerçekten RevenueCat'ten geldiğini doğrula
+    if not REVENUECAT_WEBHOOK_TOKEN or authorization != f"Bearer {REVENUECAT_WEBHOOK_TOKEN}":
+        print("KRİTİK GÜVENLİK UYARISI: Geçersiz RevenueCat webhook token'ı!")
+        raise HTTPException(status_code=403, detail="Geçersiz Yetkilendirme")
+
+    # 2. Adım: Gelen veriden kullanıcı ID'sini ve yetkilerini al
+    user_uid = payload.event.app_user_id
+    entitlements = payload.event.entitlements
+    
+    # 3. Adım: Yetkilere göre yeni planı belirle
+    new_plan = "free" # Varsayılan olarak free
+    if "ultra_access" in entitlements:
+        new_plan = "ultra"
+    elif "pro_access" in entitlements:
+        new_plan = "pro"
+
+    # 4. Adım: Veritabanındaki kullanıcıyı güncelle
+    try:
+        with Session(engine) as session:
+            user = session.get(User, user_uid)
+            if user:
+                if user.plan != new_plan:
+                    user.plan = new_plan
+                    session.add(user)
+                    session.commit()
+                    print(f"Kullanıcı {user_uid} planı '{new_plan}' olarak güncellendi.")
+                else:
+                    print(f"Kullanıcı {user_uid} zaten '{new_plan}' planında. Değişiklik yapılmadı.")
+            else:
+                print(f"Webhook uyarısı: {user_uid} ID'li kullanıcı veritabanında bulunamadı.")
+                # İsteğe bağlı: Bu durumda yeni bir kullanıcı da oluşturabilirsiniz.
+                # Şimdilik sadece logluyoruz.
+    
+    except Exception as e:
+        print(f"RevenueCat webhook işlenirken veritabanı hatası: {e}")
+        # Hata durumunda RevenueCat'e başarısız olduğumuzu bildirmeyelim ki
+        # webhook'u tekrar göndermeye çalışsın. Bu yüzden 500 hatası fırlatıyoruz.
+        raise HTTPException(status_code=500, detail="Veritabanı güncelleme hatası.")
+
+    # 5. Adım: RevenueCat'e her şeyin yolunda olduğunu bildir
+    return {"status": "ok"}
 # ----------------------------
 # --- YENİ CRON JOB ENDPOINT'i ve MANTIĞI ---
 # ----------------------------
